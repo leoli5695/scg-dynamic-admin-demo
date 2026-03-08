@@ -13,7 +13,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 服务管理控制器
+ * Service management controller.
+ *
+ * @author leoli
  */
 @Slf4j
 @RestController
@@ -27,7 +29,7 @@ public class ServiceController {
     private NacosConfigManager nacosConfigManager;
 
     /**
-     * 获取所有服务
+     * Get all services.
      */
     @GetMapping
     public ResponseEntity<Map<String, Object>> getAllServices() {
@@ -40,7 +42,7 @@ public class ServiceController {
     }
 
     /**
-     * 根据名称获取服务
+     * Get service by name.
      */
     @GetMapping("/{name}")
     public ResponseEntity<Map<String, Object>> getServiceByName(@PathVariable String name) {
@@ -59,7 +61,7 @@ public class ServiceController {
     }
 
     /**
-     * 注册服务
+     * Register a service.
      */
     @PostMapping
     public ResponseEntity<Map<String, Object>> registerService(@RequestBody ServiceDefinition service) {
@@ -79,7 +81,7 @@ public class ServiceController {
     }
 
     /**
-     * 更新服务
+     * Update a service.
      */
     @PutMapping("/{name}")
     public ResponseEntity<Map<String, Object>> updateService(@PathVariable String name,
@@ -100,7 +102,7 @@ public class ServiceController {
     }
 
     /**
-     * 删除服务
+     * Delete a service.
      */
     @DeleteMapping("/{name}")
     public ResponseEntity<Map<String, Object>> deleteService(@PathVariable String name) {
@@ -119,7 +121,7 @@ public class ServiceController {
     }
 
     /**
-     * 添加服务实例
+     * Add a service instance.
      */
     @PostMapping("/{name}/instances")
     public ResponseEntity<Map<String, Object>> addServiceInstance(
@@ -140,7 +142,7 @@ public class ServiceController {
     }
 
     /**
-     * 移除服务实例
+     * Remove a service instance.
      */
     @DeleteMapping("/{name}/instances/{instanceId}")
     public ResponseEntity<Map<String, Object>> removeServiceInstance(
@@ -161,7 +163,7 @@ public class ServiceController {
     }
 
     /**
-     * 更新服务实例状态
+     * Update service instance status (healthy/enabled).
      */
     @PutMapping("/{name}/instances/{instanceId}/status")
     public ResponseEntity<Map<String, Object>> updateInstanceStatus(
@@ -184,7 +186,7 @@ public class ServiceController {
     }
 
     /**
-     * 获取服务统计信息
+     * Get service statistics.
      */
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getServiceStats() {
@@ -197,7 +199,7 @@ public class ServiceController {
     }
 
     /**
-     * 从Nacos服务发现获取已注册的服务列表
+     * Get registered service names from Nacos service discovery.
      */
     @GetMapping("/nacos-discovery")
     public ResponseEntity<Map<String, Object>> getNacosDiscoveryServices() {

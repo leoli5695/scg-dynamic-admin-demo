@@ -4,7 +4,7 @@ import com.example.gatewayadmin.config.NacosConfigManager;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Nacos 配置发布工具类
+ * Nacos configuration publisher utility
  * 
  * @author leoli
  */
@@ -20,7 +20,7 @@ public class NacosPublisher {
     }
 
     /**
-     * 发布配置到 Nacos（JSON 类型）
+     * Publish configuration to Nacos (JSON type)
      */
     public boolean publish(Object config) {
         try {
@@ -32,7 +32,7 @@ public class NacosPublisher {
     }
 
     /**
-     * 从 Nacos 删除配置
+     * Remove configuration from Nacos
      */
     public boolean remove() {
         try {
@@ -44,7 +44,7 @@ public class NacosPublisher {
     }
 
     /**
-     * 获取 Data ID
+     * Get Data ID
      */
     public String getDataId() {
         return dataId;

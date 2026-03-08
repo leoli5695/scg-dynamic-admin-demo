@@ -22,7 +22,9 @@ import java.util.Properties;
 import java.util.concurrent.Executor;
 
 /**
- * Nacos配置管理器
+ * Nacos configuration manager.
+ *
+ * @author leoli
  */
 @Slf4j
 @Component("customNacosConfigManager")
@@ -50,7 +52,7 @@ public class NacosConfigManager {
     public void init() throws NacosException {
         Properties properties = new Properties();
         properties.put("serverAddr", serverAddr);
-        // Nacos public 命名空间的 ID 是空字符串，不能传 "public" 名称
+        // The Nacos 'public' namespace uses empty string as ID, not the literal "public"
         String namespaceId = "public".equalsIgnoreCase(namespace) ? "" : namespace;
         properties.put("namespace", namespaceId);
         this.configService = new NacosConfigService(properties);
@@ -71,7 +73,7 @@ public class NacosConfigManager {
     }
 
     /**
-     * 发布配置到 Nacos
+     * Publish configuration to Nacos.
      */
     public boolean publishConfig(String dataId, String content) {
         try {
@@ -90,7 +92,7 @@ public class NacosConfigManager {
     }
 
     /**
-     * 发布配置到 Nacos (对象自动转 JSON)
+     * Publish configuration object to Nacos (auto-serialized to JSON).
      */
     public boolean publishConfig(String dataId, Object config) {
         try {
@@ -110,7 +112,7 @@ public class NacosConfigManager {
     }
 
     /**
-     * 从Nacos获取配置
+     * Fetch configuration from Nacos by data ID.
      */
     public String getConfig(String dataId) {
         try {
@@ -125,7 +127,7 @@ public class NacosConfigManager {
     }
 
     /**
-     * 从Nacos获取配置并转为对象
+     * Fetch and deserialize configuration from Nacos by data ID.
      */
     public <T> T getConfig(String dataId, Class<T> clazz) {
         String content = getConfig(dataId);
@@ -141,7 +143,7 @@ public class NacosConfigManager {
     }
 
     /**
-     * 删除Nacos配置
+     * Remove configuration from Nacos.
      */
     public boolean removeConfig(String dataId) {
         try {
@@ -159,7 +161,7 @@ public class NacosConfigManager {
     }
 
     /**
-     * 添加配置监听器
+     * Add a listener for configuration changes.
      */
     public void addListener(String dataId, ConfigChangeListener listener) {
         try {
@@ -182,7 +184,7 @@ public class NacosConfigManager {
     }
 
     /**
-     * 从Nacos服务发现获取已注册的服务名称列表
+     * Get all registered service names from Nacos service discovery.
      */
     public List<String> getDiscoveryServiceNames() {
         try {
@@ -195,7 +197,7 @@ public class NacosConfigManager {
     }
 
     /**
-     * 从Nacos服务发现获取某服务的实例列表
+     * Get all instances of a service from Nacos service discovery.
      */
     public List<Instance> getDiscoveryInstances(String serviceName) {
         try {
@@ -208,7 +210,7 @@ public class NacosConfigManager {
     }
 
     /**
-     * 配置变更监听器接口
+     * Callback interface for configuration changes.
      */
     @FunctionalInterface
     public interface ConfigChangeListener {

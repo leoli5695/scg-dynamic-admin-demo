@@ -16,7 +16,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * 服务管理服务
+ * Service management service
+ *
+ * @author leoli
  */
 @Slf4j
 @Service
@@ -31,40 +33,40 @@ public class ServiceManager {
     private String servicesDataId;
     private NacosPublisher publisher;
 
-    // 本地缓存 serviceName -> ServiceDefinition
+    // Local cache: serviceName -> ServiceDefinition
     private final ConcurrentHashMap<String, ServiceDefinition> serviceCache = new ConcurrentHashMap<>();
 
     @PostConstruct
     public void init() {
         servicesDataId = properties.getNacos().getDataIds().getServices();
         publisher = new NacosPublisher(nacosConfigManager, servicesDataId);
-        // 从 Nacos 加载初始配置
+        // Load initial config from Nacos
         loadServicesFromNacos();
     }
 
     /**
-     * 获取所有服务
+     * Get all services
      */
     public List<ServiceDefinition> getAllServices() {
         return new ArrayList<>(serviceCache.values());
     }
 
     /**
-     * 根据名称获取服务
-     * 缓存miss时从Nacos查询，确保数据不丢失
+     * Get service by name.
+     * Reloads from Nacos on cache miss to ensure data is not lost.
      */
     public ServiceDefinition getServiceByName(String name) {
         if (name == null || name.isEmpty()) {
             return null;
         }
 
-        // 先从缓存获取
+        // Try cache first
         ServiceDefinition service = serviceCache.get(name);
         if (Objects.nonNull(service)) {
             return service;
         }
-
-        // 缓存miss，从Nacos重新加载
+        
+        // Cache miss, reload from Nacos
         log.info("Service not found in cache, reloading from Nacos: {}", name);
         loadServicesFromNacos();
 
@@ -72,7 +74,7 @@ public class ServiceManager {
     }
 
     /**
-     * 强制从Nacos刷新缓存
+     * Force refresh cache from Nacos
      */
     public List<ServiceDefinition> refreshFromNacos() {
         log.info("Force refreshing services from Nacos");
@@ -81,7 +83,7 @@ public class ServiceManager {
     }
 
     /**
-     * 注册服务
+     * Register service
      */
     public boolean registerService(ServiceDefinition service) {
         if (service == null || service.getName() == null || service.getName().isEmpty()) {
@@ -94,7 +96,7 @@ public class ServiceManager {
     }
 
     /**
-     * 更新服务
+     * Update service
      */
     public boolean updateService(String name, ServiceDefinition service) {
         if (service == null || name == null || name.isEmpty()) {
@@ -113,7 +115,7 @@ public class ServiceManager {
     }
 
     /**
-     * 删除服务
+     * Delete service
      */
     public boolean deleteService(String name) {
         if (name == null || name.isEmpty()) {
@@ -123,13 +125,13 @@ public class ServiceManager {
         log.info("Deleting service from cache: {}", name);
         serviceCache.remove(name);
 
-        // 如果缓存为空，直接删除 Nacos 配置
+        // If cache is empty, remove config from Nacos directly
         if (serviceCache.isEmpty()) {
             log.info("Service cache is empty, removing config from Nacos: {}", servicesDataId);
             return publisher.remove();
         }
 
-        // 否则发布更新后的配置
+        // Otherwise publish updated config
         boolean result = publisher.publish(new GatewayServicesConfig(new ArrayList<>(serviceCache.values())));
         if (result) {
             log.info("Successfully deleted service '{}' and published to Nacos", name);
@@ -140,7 +142,7 @@ public class ServiceManager {
     }
 
     /**
-     * 添加服务实例
+     * Add service instance
      */
     public boolean addServiceInstance(String serviceName, ServiceDefinition.ServiceInstance instance) {
         ServiceDefinition service = serviceCache.get(serviceName);
@@ -149,7 +151,7 @@ public class ServiceManager {
             return false;
         }
 
-        // 检查是否已存在
+        // Check if already exists
         boolean exists = service.getInstances().stream()
                 .anyMatch(i -> i.getIp().equals(instance.getIp()) && i.getPort() == instance.getPort());
 
@@ -163,7 +165,7 @@ public class ServiceManager {
     }
 
     /**
-     * 移除服务实例
+     * Remove service instance
      */
     public boolean removeServiceInstance(String serviceName, String instanceId) {
         ServiceDefinition service = serviceCache.get(serviceName);
@@ -180,7 +182,7 @@ public class ServiceManager {
     }
 
     /**
-     * 更新服务实例状态
+     * Update service instance status
      */
     public boolean updateInstanceStatus(String serviceName, String instanceId, boolean healthy, boolean enabled) {
         ServiceDefinition service = serviceCache.get(serviceName);
@@ -201,7 +203,7 @@ public class ServiceManager {
     }
 
     /**
-     * 从Nacos加载服务配置
+     * Load service configuration from Nacos
      */
     private void loadServicesFromNacos() {
         try {
@@ -223,7 +225,7 @@ public class ServiceManager {
     }
 
     /**
-     * 获取服务统计信息
+     * Get service statistics
      */
     public ServiceStats getServiceStats() {
         ServiceStats stats = new ServiceStats();
@@ -245,7 +247,7 @@ public class ServiceManager {
     }
 
     /**
-     * 服务统计
+     * Service statistics
      */
     public static class ServiceStats {
         private int totalServices;

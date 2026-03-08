@@ -15,7 +15,9 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * 插件配置服务
+ * Plugin configuration service
+ *
+ * @author leoli
  */
 @Slf4j
 @Service
@@ -30,20 +32,20 @@ public class PluginService {
     private String pluginsDataId;
     private NacosPublisher publisher;
 
-    // 本地缓存
+    // Local cache
     private PluginConfig pluginCache = new PluginConfig();
 
     @PostConstruct
     public void init() {
         pluginsDataId = properties.getNacos().getDataIds().getPlugins();
         publisher = new NacosPublisher(nacosConfigManager, pluginsDataId);
-        // 从 Nacos 加载初始配置
+        // Load initial config from Nacos
         loadPluginsFromNacos();
     }
 
     /**
-     * 获取所有插件配置
-     * 缓存miss时从Nacos查询
+     * Get all plugin configurations.
+     * Reloads from Nacos on cache miss.
      */
     public PluginConfig getAllPlugins() {
         if (pluginCache == null || pluginCache.getRateLimiters() == null) {
@@ -54,7 +56,7 @@ public class PluginService {
     }
 
     /**
-     * 强制从Nacos刷新缓存
+     * Force refresh cache from Nacos
      */
     public PluginConfig refreshFromNacos() {
         log.info("Force refreshing plugins from Nacos");
@@ -63,28 +65,28 @@ public class PluginService {
     }
 
     /**
-     * 获取所有限流配置
+     * Get all rate limiter configurations
      */
     public List<PluginConfig.RateLimiterConfig> getAllRateLimiters() {
         return pluginCache.getRateLimiters();
     }
 
     /**
-     * 获取所有 IP 过滤器配置
+     * Get all IP filter configurations
      */
     public List<PluginConfig.IPFilterConfig> getAllIPFilters() {
         return pluginCache.getIpFilters();
     }
     
     /**
-     * 获取所有超时配置
+     * Get all timeout configurations
      */
     public List<PluginConfig.TimeoutConfig> getAllTimeouts() {
         return pluginCache.getTimeouts();
     }
     
     /**
-     * 根据路由 ID 获取超时配置
+     * Get timeout configuration by route ID
      */
     public PluginConfig.TimeoutConfig getTimeoutByRoute(String routeId) {
         return pluginCache.getTimeouts().stream()
@@ -94,7 +96,7 @@ public class PluginService {
     }
 
     /**
-     * 根据路由 ID 获取 IP 过滤器配置
+     * Get IP filter configuration by route ID
      */
     public PluginConfig.IPFilterConfig getIPFilterByRoute(String routeId) {
         return pluginCache.getIpFilters().stream()
@@ -104,7 +106,7 @@ public class PluginService {
     }
 
     /**
-     * 根据路由 ID 获取限流配置
+     * Get rate limiter configuration by route ID
      */
     public PluginConfig.RateLimiterConfig getRateLimiterByRouteId(String routeId) {
         return pluginCache.getRateLimiters().stream()
@@ -114,7 +116,7 @@ public class PluginService {
     }
 
     /**
-     * 创建限流配置
+     * Create rate limiter configuration
      */
     public boolean createRateLimiter(PluginConfig.RateLimiterConfig config) {
         if (config == null || config.getRouteId() == null || config.getRouteId().isEmpty()) {
@@ -122,13 +124,13 @@ public class PluginService {
             return false;
         }
 
-        // 检查是否已存在
+        // Check if already exists
         Optional<PluginConfig.RateLimiterConfig> existing = pluginCache.getRateLimiters().stream()
                 .filter(r -> config.getRouteId().equals(r.getRouteId()))
                 .findFirst();
 
         if (existing.isPresent()) {
-            // 更新
+            // Update
             pluginCache.getRateLimiters().remove(existing.get());
         }
 
@@ -137,7 +139,7 @@ public class PluginService {
     }
 
     /**
-     * 更新限流配置
+     * Update rate limiter configuration
      */
     public boolean updateRateLimiter(String routeId, PluginConfig.RateLimiterConfig config) {
         if (config == null || routeId == null || routeId.isEmpty()) {
@@ -147,18 +149,18 @@ public class PluginService {
 
         config.setRouteId(routeId);
 
-        // 移除旧的
+        // Remove old entry
         pluginCache.setRateLimiters(pluginCache.getRateLimiters().stream()
                 .filter(r -> !routeId.equals(r.getRouteId()))
                 .collect(Collectors.toList()));
 
-        // 添加新的
+        // Add new entry
         pluginCache.getRateLimiters().add(config);
         return publisher.publish(new GatewayPluginsConfig(pluginCache));
     }
 
     /**
-     * 删除限流配置
+     * Delete rate limiter configuration
      */
     public boolean deleteRateLimiter(String routeId) {
         if (routeId == null || routeId.isEmpty()) {
@@ -170,13 +172,13 @@ public class PluginService {
                 .filter(r -> !routeId.equals(r.getRouteId()))
                 .collect(Collectors.toList()));
 
-        // 如果缓存为空，直接删除 Nacos 配置
+        // If cache is empty, remove config from Nacos directly
         if (pluginCache.getRateLimiters().isEmpty()) {
             log.info("No plugins left, removing config from Nacos: {}", pluginsDataId);
             return publisher.remove();
         }
 
-        // 否则发布更新后的配置
+        // Otherwise publish updated config
         boolean result = publisher.publish(new GatewayPluginsConfig(pluginCache));
         if (result) {
             log.info("Successfully deleted rate limiter '{}' and published to Nacos", routeId);
@@ -189,7 +191,7 @@ public class PluginService {
     // Note: createCustomHeader() removed - use SCG native AddRequestHeader filter instead
 
     /**
-     * 创建 IP 过滤器配置
+     * Create IP filter configuration
      */
     public boolean createIPFilter(PluginConfig.IPFilterConfig config) {
         if (config == null || config.getRouteId() == null || config.getRouteId().isEmpty()) {
@@ -197,13 +199,13 @@ public class PluginService {
             return false;
         }
 
-        // 检查是否已存在
+        // Check if already exists
         Optional<PluginConfig.IPFilterConfig> existing = pluginCache.getIpFilters().stream()
                 .filter(f -> config.getRouteId().equals(f.getRouteId()))
                 .findFirst();
 
         if (existing.isPresent()) {
-            // 更新
+            // Update
             pluginCache.getIpFilters().remove(existing.get());
         }
 
@@ -212,7 +214,7 @@ public class PluginService {
     }
 
     /**
-     * 更新 IP 过滤器配置
+     * Update IP filter configuration
      */
     public boolean updateIPFilter(String routeId, PluginConfig.IPFilterConfig config) {
         if (config == null || routeId == null || routeId.isEmpty()) {
@@ -222,18 +224,18 @@ public class PluginService {
 
         config.setRouteId(routeId);
 
-        // 移除旧的
+        // Remove old entry
         pluginCache.setIpFilters(pluginCache.getIpFilters().stream()
                 .filter(f -> !routeId.equals(f.getRouteId()))
                 .collect(Collectors.toList()));
 
-        // 添加新的
+        // Add new entry
         pluginCache.getIpFilters().add(config);
         return publisher.publish(new GatewayPluginsConfig(pluginCache));
     }
 
     /**
-     * 删除 IP 过滤器配置
+     * Delete IP filter configuration
      */
     public boolean deleteIPFilter(String routeId) {
         if (routeId == null || routeId.isEmpty()) {
@@ -245,13 +247,13 @@ public class PluginService {
                 .filter(f -> !routeId.equals(f.getRouteId()))
                 .collect(Collectors.toList()));
 
-        // 如果缓存为空，直接删除 Nacos 配置
+        // If cache is empty, remove config from Nacos directly
         if (pluginCache.getRateLimiters().isEmpty() && pluginCache.getIpFilters().isEmpty() && pluginCache.getTimeouts().isEmpty()) {
             log.info("No plugins left, removing config from Nacos: {}", pluginsDataId);
             return publisher.remove();
         }
 
-        // 否则发布更新后的配置
+        // Otherwise publish updated config
         boolean result = publisher.publish(new GatewayPluginsConfig(pluginCache));
         if (result) {
             log.info("Successfully deleted IP filter '{}' and published to Nacos", routeId);
@@ -262,7 +264,7 @@ public class PluginService {
     }
     
     /**
-     * 创建超时配置
+     * Create timeout configuration
      */
     public boolean createTimeout(PluginConfig.TimeoutConfig config) {
         if (config == null || config.getRouteId() == null || config.getRouteId().isEmpty()) {
@@ -270,13 +272,13 @@ public class PluginService {
             return false;
         }
 
-        // 检查是否已存在
+        // Check if already exists
         Optional<PluginConfig.TimeoutConfig> existing = pluginCache.getTimeouts().stream()
                 .filter(t -> config.getRouteId().equals(t.getRouteId()))
                 .findFirst();
 
         if (existing.isPresent()) {
-            // 更新
+            // Update
             pluginCache.getTimeouts().remove(existing.get());
         }
 
@@ -285,7 +287,7 @@ public class PluginService {
     }
     
     /**
-     * 更新超时配置
+     * Update timeout configuration
      */
     public boolean updateTimeout(String routeId, PluginConfig.TimeoutConfig config) {
         if (config == null || routeId == null || routeId.isEmpty()) {
@@ -295,18 +297,18 @@ public class PluginService {
 
         config.setRouteId(routeId);
 
-        // 移除旧的
+        // Remove old entry
         pluginCache.setTimeouts(pluginCache.getTimeouts().stream()
                 .filter(t -> !routeId.equals(t.getRouteId()))
                 .collect(Collectors.toList()));
 
-        // 添加新的
+        // Add new entry
         pluginCache.getTimeouts().add(config);
         return publisher.publish(new GatewayPluginsConfig(pluginCache));
     }
     
     /**
-     * 删除超时配置
+     * Delete timeout configuration
      */
     public boolean deleteTimeout(String routeId) {
         if (routeId == null || routeId.isEmpty()) {
@@ -318,13 +320,13 @@ public class PluginService {
                 .filter(t -> !routeId.equals(t.getRouteId()))
                 .collect(Collectors.toList()));
 
-        // 如果缓存为空，直接删除 Nacos 配置
+        // If cache is empty, remove config from Nacos directly
         if (pluginCache.getRateLimiters().isEmpty() && pluginCache.getIpFilters().isEmpty() && pluginCache.getTimeouts().isEmpty()) {
             log.info("No plugins left, removing config from Nacos: {}", pluginsDataId);
             return publisher.remove();
         }
 
-        // 否则发布更新后的配置
+        // Otherwise publish updated config
         boolean result = publisher.publish(new GatewayPluginsConfig(pluginCache));
         if (result) {
             log.info("Successfully deleted timeout config '{}' and published to Nacos", routeId);
@@ -339,7 +341,7 @@ public class PluginService {
      */
 
     /**
-     * 批量更新插件配置
+     * Batch update plugin configurations
      */
     public boolean batchUpdatePlugins(PluginConfig plugins) {
         if (plugins == null) {
@@ -351,7 +353,7 @@ public class PluginService {
     }
 
     /**
-     * 从Nacos加载插件配置
+     * Load plugin configuration from Nacos
      */
     private void loadPluginsFromNacos() {
         try {
@@ -370,7 +372,7 @@ public class PluginService {
     }
 
     /**
-     * 获取插件统计信息
+     * Get plugin statistics
      */
     public PluginStats getPluginStats() {
         PluginStats stats = new PluginStats();
@@ -386,7 +388,7 @@ public class PluginService {
     }
 
     /**
-     * 插件统计
+     * Plugin statistics
      */
     @Data
     public static class PluginStats {

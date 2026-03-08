@@ -18,6 +18,12 @@ import java.net.URI;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Route definition locator backed by Nacos configuration.
+ * Loads route definitions from Nacos and caches them for performance.
+ *
+ * @author leoli
+ */
 @Slf4j
 public class NacosRouteDefinitionLocator implements RouteDefinitionLocator {
 
@@ -185,7 +191,7 @@ public class NacosRouteDefinitionLocator implements RouteDefinitionLocator {
                     route.setUri(new URI(uriStr));
                 } catch (Exception e) {
                     log.error("Invalid URI format: {}", uriStr, e);
-                    // URI 无效时跳过此路由
+                    // Skip this route when URI is invalid
                     return null;
                 }
             } else {

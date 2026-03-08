@@ -4,26 +4,28 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * Gateway Admin 配置属性
+ * Gateway Admin configuration properties.
+ *
+ * @author leoli
  */
 @Data
 @ConfigurationProperties(prefix = "gateway.admin")
 public class GatewayAdminProperties {
 
     /**
-     * Nacos配置
+     * Nacos configuration properties.
      */
     private NacosProperties nacos = new NacosProperties();
 
     @Data
     public static class NacosProperties {
         /**
-         * Data ID配置
+         * Nacos data ID configuration.
          */
         private DataIdProperties dataIds = new DataIdProperties();
 
         /**
-         * 配置分组
+         * Nacos config group.
          */
         private String group = "DEFAULT_GROUP";
     }
@@ -31,17 +33,17 @@ public class GatewayAdminProperties {
     @Data
     public static class DataIdProperties {
         /**
-         * 路由配置Data ID
+         * Data ID for route configuration.
          */
         private String routes = "gateway-routes.json";
 
         /**
-         * 服务配置Data ID
+         * Data ID for service configuration.
          */
         private String services = "gateway-services.json";
 
         /**
-         * 插件配置Data ID
+         * Data ID for plugin configuration.
          */
         private String plugins = "gateway-plugins.json";
     }

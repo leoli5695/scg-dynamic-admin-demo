@@ -5,18 +5,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 网关服务配置包装类 (用于序列化到Nacos)
+ * Gateway service configuration wrapper for Nacos serialization.
+ *
+ * @author leoli
  */
 @Data
 public class GatewayServicesConfig {
     
     /**
-     * 版本号
+     * Config version.
      */
     private String version = "1.0";
     
     /**
-     * 服务列表
+     * Service list.
      */
     private List<ServiceDefinition> services = new ArrayList<>();
     

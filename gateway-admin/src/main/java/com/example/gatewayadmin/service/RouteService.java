@@ -15,7 +15,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * 路由配置服务
+ * Route configuration service
+ *
+ * @author leoli
  */
 @Slf4j
 @Service
@@ -27,40 +29,40 @@ public class RouteService {
     private GatewayAdminProperties properties;
     @Autowired
     private NacosConfigManager nacosConfigManager;
-    // 本地缓存
+    // Local cache
     private final ConcurrentHashMap<String, RouteDefinition> routeCache = new ConcurrentHashMap<>();
 
     @PostConstruct
     public void init() {
         routesDataId = properties.getNacos().getDataIds().getRoutes();
         publisher = new NacosPublisher(nacosConfigManager, routesDataId);
-        // 从 Nacos 加载初始路由配置
+        // Load initial route config from Nacos
         loadRoutesFromNacos();
     }
 
     /**
-     * 获取所有路由
+     * Get all routes
      */
     public List<RouteDefinition> getAllRoutes() {
         return new ArrayList<>(routeCache.values());
     }
 
     /**
-     * 根据ID获取路由
-     * 缓存miss时从Nacos查询，确保数据不丢失
+     * Get route by ID.
+     * Reloads from Nacos on cache miss to ensure data is not lost.
      */
     public RouteDefinition getRouteById(String id) {
         if (id == null || id.isEmpty()) {
             return null;
         }
 
-        // 先从缓存获取
+        // Try cache first
         RouteDefinition route = routeCache.get(id);
         if (route != null) {
             return route;
         }
-
-        // 缓存miss，从Nacos重新加载
+        
+        // Cache miss, reload from Nacos
         log.info("Route not found in cache, reloading from Nacos: {}", id);
         reloadRoutes();
 
@@ -68,7 +70,7 @@ public class RouteService {
     }
 
     /**
-     * 创建路由
+     * Create route
      */
     public boolean createRoute(RouteDefinition route) {
         if (route == null || route.getId() == null || route.getId().isEmpty()) {
@@ -86,7 +88,7 @@ public class RouteService {
     }
 
     /**
-     * 更新路由
+     * Update route
      */
     public boolean updateRoute(String id, RouteDefinition route) {
         if (route == null || id == null || id.isEmpty()) {
@@ -105,7 +107,7 @@ public class RouteService {
     }
 
     /**
-     * 删除路由
+     * Delete route
      */
     public boolean deleteRoute(String id) {
         if (id == null || id.isEmpty()) {
@@ -115,13 +117,13 @@ public class RouteService {
         log.info("Deleting route from cache: {}", id);
         routeCache.remove(id);
 
-        // 如果缓存为空，直接删除 Nacos 配置
+        // If cache is empty, remove config from Nacos directly
         if (routeCache.isEmpty()) {
             log.info("Route cache is empty, removing config from Nacos: {}", routesDataId);
             return publisher.remove();
         }
 
-        // 否则发布更新后的配置
+        // Otherwise publish updated config
         boolean result = publisher.publish(new GatewayRoutesConfig(new ArrayList<>(routeCache.values())));
         if (result) {
             log.info("Successfully deleted route '{}' and published to Nacos", id);
@@ -132,7 +134,7 @@ public class RouteService {
     }
 
     /**
-     * 批量创建/更新路由
+     * Batch create/update routes
      */
     public boolean batchUpdateRoutes(List<RouteDefinition> routes) {
         if (routes == null) {
@@ -149,14 +151,14 @@ public class RouteService {
     }
 
     /**
-     * 重新加载路由配置
+     * Reload route configuration
      */
     public void reloadRoutes() {
         loadRoutesFromNacos();
     }
 
     /**
-     * 从Nacos加载路由配置
+     * Load route configuration from Nacos
      */
     private void loadRoutesFromNacos() {
         try {
@@ -178,7 +180,7 @@ public class RouteService {
     }
 
     /**
-     * 根据服务名查找路由
+     * Find routes by service name
      */
     public List<RouteDefinition> getRoutesByService(String serviceName) {
         return routeCache.values().stream()
@@ -187,7 +189,7 @@ public class RouteService {
     }
 
     /**
-     * 获取路由统计信息
+     * Get route statistics
      */
     public RouteStats getRouteStats() {
         RouteStats stats = new RouteStats();
@@ -202,7 +204,7 @@ public class RouteService {
     }
 
     /**
-     * 强制从Nacos刷新缓存
+     * Force refresh cache from Nacos
      */
     public List<RouteDefinition> refreshFromNacos() {
         log.info("Force refreshing routes from Nacos");
@@ -211,7 +213,7 @@ public class RouteService {
     }
 
     /**
-     * 路由统计
+     * Route statistics
      */
     public static class RouteStats {
         private int totalCount;

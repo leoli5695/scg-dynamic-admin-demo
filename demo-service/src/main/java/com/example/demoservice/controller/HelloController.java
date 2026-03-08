@@ -13,6 +13,11 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Demo service REST controller for load balancing tests.
+ *
+ * @author leoli
+ */
 @RestController
 public class HelloController {
 
@@ -50,7 +55,7 @@ public class HelloController {
     }
 
     /**
-     * 返回所有请求头的接口，方便测试自定义 Header 插件
+     * Returns all request headers – useful for testing custom Header plugins
      */
     @GetMapping("/headers")
     public Map<String, Object> headers(HttpServletRequest request) {
@@ -69,7 +74,7 @@ public class HelloController {
             result.put("ip", "unknown");
         }
         
-        // 获取所有请求头
+        // Collect all request headers
         Map<String, String> headers = new HashMap<>();
         Enumeration<String> headerNames = request.getHeaderNames();
         while (headerNames.hasMoreElements()) {

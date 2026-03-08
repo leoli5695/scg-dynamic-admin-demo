@@ -8,78 +8,79 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 插件配置模型
- * 
- * Note: Custom Header 功能已移除，改用 SCG 原生 AddRequestHeader 过滤器
+ * Plugin configuration model.
+ * Note: Custom Header feature removed, use SCG native AddRequestHeader filter instead.
+ *
+ * @author leoli
  */
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class PluginConfig {
     
     /**
-     * 限流插件配置列表
+     * Rate limiter plugin configurations.
      */
     private List<RateLimiterConfig> rateLimiters = new ArrayList<>();
     
     /**
-     * IP 黑白名单插件配置列表
+     * IP filter plugin configurations (whitelist/blacklist).
      */
     private List<IPFilterConfig> ipFilters = new ArrayList<>();
     
     /**
-     * 超时过滤器配置列表
+     * Timeout filter configurations.
      */
     private List<TimeoutConfig> timeouts = new ArrayList<>();
     
     // Note: customHeaders removed - use SCG native AddRequestHeader filter instead
     
     /**
-     * 限流插件配置
+     * Rate limiter plugin configuration.
      */
     @Data
     public static class RateLimiterConfig {
         /**
-         * 路由 ID
+         * Route ID.
          */
         private String routeId;
             
         /**
-         * 限流速率 (QPS)
+         * Rate limit (QPS).
          */
         private int qps = 100;
             
         /**
-         * 时间单位：second / minute / hour
+         * Time unit: second / minute / hour.
          */
         private String timeUnit = "second";
             
         /**
-         * 突发流量容量
+         * Burst capacity.
          */
         private int burstCapacity = 200;
             
         /**
-         * 限流维度：ip / user / header / global
+         * Key resolver dimension: ip / user / header / global.
          */
         private String keyResolver = "ip";
             
         /**
-         * 当 keyResolver 为 header 时，指定 header 名称
+         * Header name when keyResolver is 'header'.
          */
         private String headerName;
             
         /**
-         * Key 类型：route / ip / combined
+         * Key type: route / ip / combined.
          */
         private String keyType = "combined";
             
         /**
-         * Key 前缀
+         * Key prefix.
          */
         private String keyPrefix = "rate_limit:";
             
         /**
-         * 是否启用
+         * Whether this config is enabled.
          */
         private boolean enabled = true;
             
@@ -94,27 +95,27 @@ public class PluginConfig {
     }
     
     /**
-     * IP 黑白名单过滤器配置
+     * IP filter configuration (whitelist/blacklist).
      */
     @Data
     public static class IPFilterConfig {
         /**
-         * 路由 ID
+         * Route ID.
          */
         private String routeId;
         
         /**
-         * 过滤模式：blacklist / whitelist
+         * Filter mode: blacklist / whitelist.
          */
         private String mode = "blacklist";
         
         /**
-         * IP 地址列表（支持 CIDR 格式）
+         * IP address list (supports CIDR notation).
          */
         private List<String> ipList = new ArrayList<>();
         
         /**
-         * 是否启用
+         * Whether this config is enabled.
          */
         private boolean enabled = true;
         
@@ -128,28 +129,28 @@ public class PluginConfig {
     }
     
     /**
-     * 超时过滤器配置
+     * Timeout filter configuration.
      */
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class TimeoutConfig {
         /**
-         * 路由 ID
+         * Route ID.
          */
         private String routeId;
         
         /**
-         * 连接超时（毫秒）- TCP 建立连接阶段
+         * Connect timeout in milliseconds (TCP connection phase).
          */
         private int connectTimeout = 5000;
         
         /**
-         * 响应超时（毫秒）- 从发起请求到收到完整响应的总时间
+         * Response timeout in milliseconds (total time from request to complete response).
          */
         private int responseTimeout = 30000;
         
         /**
-         * 是否启用
+         * Whether this config is enabled.
          */
         private boolean enabled = true;
         

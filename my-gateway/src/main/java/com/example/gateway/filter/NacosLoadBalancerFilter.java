@@ -261,7 +261,7 @@ public class NacosLoadBalancerFilter implements GlobalFilter, Ordered {
     }
     
     /**
-     * DelegatingServiceInstance 包装类
+     * Wrapper for ServiceInstance with overrideable scheme
      */
     private static class DelegatingServiceInstance implements ServiceInstance {
         private final ServiceInstance delegate;

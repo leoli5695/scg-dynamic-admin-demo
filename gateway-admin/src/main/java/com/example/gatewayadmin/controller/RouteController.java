@@ -12,7 +12,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 路由管理控制器
+ * Route management controller.
+ *
+ * @author leoli
  */
 @Slf4j
 @RestController
@@ -23,7 +25,7 @@ public class RouteController {
     private RouteService routeService;
 
     /**
-     * 获取所有路由
+     * Get all routes.
      */
     @GetMapping
     public ResponseEntity<Map<String, Object>> getAllRoutes() {
@@ -36,7 +38,7 @@ public class RouteController {
     }
 
     /**
-     * 根据ID获取路由
+     * Get route by ID.
      */
     @GetMapping("/{id}")
     public ResponseEntity<Map<String, Object>> getRouteById(@PathVariable String id) {
@@ -55,7 +57,7 @@ public class RouteController {
     }
 
     /**
-     * 创建路由
+     * Create a route.
      */
     @PostMapping
     public ResponseEntity<Map<String, Object>> createRoute(@RequestBody RouteDefinition route) {
@@ -75,7 +77,7 @@ public class RouteController {
     }
 
     /**
-     * 更新路由
+     * Update a route.
      */
     @PutMapping("/{id}")
     public ResponseEntity<Map<String, Object>> updateRoute(@PathVariable String id, 
@@ -96,7 +98,7 @@ public class RouteController {
     }
 
     /**
-     * 删除路由
+     * Delete a route.
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, Object>> deleteRoute(@PathVariable String id) {
@@ -115,7 +117,7 @@ public class RouteController {
     }
 
     /**
-     * 批量更新路由
+     * Batch create/update routes.
      */
     @PostMapping("/batch")
     public ResponseEntity<Map<String, Object>> batchUpdateRoutes(@RequestBody List<RouteDefinition> routes) {
@@ -134,7 +136,7 @@ public class RouteController {
     }
 
     /**
-     * 重新加载路由配置
+     * Reload routes from Nacos.
      */
     @PostMapping("/reload")
     public ResponseEntity<Map<String, Object>> reloadRoutes() {
@@ -147,7 +149,7 @@ public class RouteController {
     }
 
     /**
-     * 获取路由统计信息
+     * Get route statistics.
      */
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getRouteStats() {
@@ -160,7 +162,7 @@ public class RouteController {
     }
 
     /**
-     * 根据服务名查询路由
+     * Get routes by service name.
      */
     @GetMapping("/service/{serviceName}")
     public ResponseEntity<Map<String, Object>> getRoutesByService(@PathVariable String serviceName) {

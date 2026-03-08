@@ -5,18 +5,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 网关路由配置包装类 (用于序列化到Nacos)
+ * Gateway route configuration wrapper for Nacos serialization.
+ *
+ * @author leoli
  */
 @Data
 public class GatewayRoutesConfig {
     
     /**
-     * 版本号
+     * Config version.
      */
     private String version = "1.0";
     
     /**
-     * 路由列表
+     * Route list.
      */
     private List<RouteDefinition> routes = new ArrayList<>();
     

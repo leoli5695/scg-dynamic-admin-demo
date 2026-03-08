@@ -20,8 +20,11 @@ import java.util.Objects;
 import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR;
 
 /**
- * 超时全局过滤器
- * 通过写入路由 metadata 将超时配置交给 SCG 底层 NettyRoutingFilter 处理
+ * Timeout global filter.
+ * Writes timeout configuration into route metadata so that SCG's
+ * underlying NettyRoutingFilter can apply per-route timeouts.
+ *
+ * @author leoli
  */
 @Component
 public class TimeoutGlobalFilter implements GlobalFilter, Ordered {
@@ -43,16 +46,17 @@ public class TimeoutGlobalFilter implements GlobalFilter, Ordered {
         logger.debug("Applying timeout for route {}: connect={}ms, response={}ms",
                 routeId, config.getConnectTimeout(), config.getResponseTimeout());
 
-        // 修改路由 metadata，NettyRoutingFilter 会自动读取这两个键并应用到 Netty HttpClient
+        // Modify route metadata; NettyRoutingFilter will read these two keys
+        // and apply them to the Netty HttpClient
         Route route = exchange.getAttribute(GATEWAY_ROUTE_ATTR);
         if (route != null) {
             Map<String, Object> metadata = new HashMap<>(route.getMetadata());
-            // connect-timeout: Integer 毫秒
+            // connect-timeout: Integer milliseconds
             metadata.put(RouteMetadataUtils.CONNECT_TIMEOUT_ATTR, config.getConnectTimeout());
-            // response-timeout: Integer 毫秒（SCG per-route 要求整数，NettyRoutingFilter 用 getLong() 读取）
+            // response-timeout: Integer milliseconds (SCG per-route requires integer; NettyRoutingFilter reads via getLong())
             metadata.put(RouteMetadataUtils.RESPONSE_TIMEOUT_ATTR, config.getResponseTimeout());
 
-            // 用新 metadata 重建 Route 并写回 exchange attribute
+            // Rebuild Route with new metadata and write back to exchange attribute
             Route newRoute = Route.async()
                     .id(route.getId())
                     .uri(route.getUri())
@@ -69,8 +73,8 @@ public class TimeoutGlobalFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        // 必须在 NettyRoutingFilter (Integer.MAX_VALUE) 之前运行
-        // 并在路由匹配之后（GATEWAY_ROUTE_ATTR 已设置）
+        // Must run before NettyRoutingFilter (Integer.MAX_VALUE)
+        // and after route matching (GATEWAY_ROUTE_ATTR is already set)
         return -200;
     }
 

@@ -19,6 +19,12 @@ import java.util.Properties;
 
 import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.*;
 
+/**
+ * Global filter for static:// protocol
+ * Resolves static service names to real HTTP addresses via gateway-services.json in Nacos.
+ *
+ * @author leoli
+ */
 @Slf4j
 @Component
 public class StaticProtocolGlobalFilter implements GlobalFilter, Ordered {
@@ -118,7 +124,7 @@ public class StaticProtocolGlobalFilter implements GlobalFilter, Ordered {
                         null,    // userInfo
                         instanceIp,  // host
                         instancePort, // port
-                        path,    // path (包含查询参数)
+                        path,    // path
                         requestUri.getQuery(), // query
                         requestUri.getFragment() // fragment
                     );
@@ -289,7 +295,7 @@ public class StaticProtocolGlobalFilter implements GlobalFilter, Ordered {
         return instances.get(index);
     }
     
-    // 加权轮询计数器（原子操作，线程安全）
+    // Weighted round-robin counter (atomic, thread-safe)
     private final java.util.concurrent.atomic.AtomicLong weightedCounter = new java.util.concurrent.atomic.AtomicLong(0);
 
     /**

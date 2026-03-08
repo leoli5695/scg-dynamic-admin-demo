@@ -5,18 +5,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 网关插件配置包装类 (用于序列化到Nacos)
+ * Gateway plugin configuration wrapper for Nacos serialization.
+ *
+ * @author leoli
  */
 @Data
 public class GatewayPluginsConfig {
     
     /**
-     * 版本号
+     * Config version.
      */
     private String version = "1.0";
     
     /**
-     * 插件配置
+     * Plugin configuration.
      */
     private PluginConfig plugins = new PluginConfig();
     

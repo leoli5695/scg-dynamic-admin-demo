@@ -7,7 +7,9 @@ import java.net.URI;
 import java.util.Map;
 
 /**
- * Nacos Instance 到 Spring Cloud ServiceInstance 的适配器
+ * Adapter from Nacos Instance to Spring Cloud ServiceInstance
+ *
+ * @author leoli
  */
 public class NacosServiceInstance implements ServiceInstance {
 

@@ -7,53 +7,55 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 路由定义模型
+ * Route definition model
+ *
+ * @author leoli
  */
 @Data
 public class RouteDefinition {
     
     /**
-     * 路由ID
+     * Route ID
      */
     private String id;
     
     /**
-     * 路由顺序
+     * Route order
      */
     private int order = 0;
     
     /**
-     * 目标URI
+     * Target URI
      */
     private String uri;
     
     /**
-     * 路由断言列表
+     * Route predicate list
      */
     private List<PredicateDefinition> predicates = new ArrayList<>();
     
     /**
-     * 过滤器列表
+     * Filter list
      */
     private List<FilterDefinition> filters = new ArrayList<>();
     
     /**
-     * 元数据
+     * Metadata
      */
     private Map<String, Object> metadata = new HashMap<>();
     
     /**
-     * 路由断言定义
+     * Route predicate definition
      */
     @Data
     public static class PredicateDefinition {
         /**
-         * 断言名称 (如: Path, Host, Method)
+         * Predicate name (e.g. Path, Host, Method)
          */
         private String name;
         
         /**
-         * 断言参数
+         * Predicate arguments
          */
         private Map<String, String> args = new HashMap<>();
         
@@ -66,17 +68,17 @@ public class RouteDefinition {
     }
     
     /**
-     * 过滤器定义
+     * Filter definition
      */
     @Data
     public static class FilterDefinition {
         /**
-         * 过滤器名称 (如: StripPrefix, AddRequestHeader, RateLimiter)
+         * Filter name (e.g. StripPrefix, AddRequestHeader, RateLimiter)
          */
         private String name;
         
         /**
-         * 过滤器参数
+         * Filter arguments
          */
         private Map<String, String> args = new HashMap<>();
         

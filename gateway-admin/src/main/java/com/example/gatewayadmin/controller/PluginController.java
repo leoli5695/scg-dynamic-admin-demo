@@ -12,7 +12,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 插件管理控制器
+ * Plugin management controller.
+ *
+ * @author leoli
  */
 @Slf4j
 @RestController
@@ -22,10 +24,10 @@ public class PluginController {
     @Autowired
     private PluginService pluginService;
 
-    // ==================== 限流插件 API ====================
+    // ==================== Rate Limiter Plugin API ====================
 
     /**
-     * 获取所有限流配置
+     * Get all rate limiter configurations.
      */
     @GetMapping("/rate-limiters")
     public ResponseEntity<Map<String, Object>> getAllRateLimiters() {
@@ -38,7 +40,7 @@ public class PluginController {
     }
 
     /**
-     * 根据路由ID获取限流配置
+     * Get rate limiter configuration by route ID.
      */
     @GetMapping("/rate-limiters/{routeId}")
     public ResponseEntity<Map<String, Object>> getRateLimiterByRouteId(@PathVariable String routeId) {
@@ -57,7 +59,7 @@ public class PluginController {
     }
 
     /**
-     * 创建限流配置
+     * Create rate limiter configuration.
      */
     @PostMapping("/rate-limiters")
     public ResponseEntity<Map<String, Object>> createRateLimiter(@RequestBody PluginConfig.RateLimiterConfig config) {
@@ -77,7 +79,7 @@ public class PluginController {
     }
 
     /**
-     * 更新限流配置
+     * Update rate limiter configuration.
      */
     @PutMapping("/rate-limiters/{routeId}")
     public ResponseEntity<Map<String, Object>> updateRateLimiter(
@@ -99,7 +101,7 @@ public class PluginController {
     }
 
     /**
-     * 删除限流配置
+     * Delete rate limiter configuration.
      */
     @DeleteMapping("/rate-limiters/{routeId}")
     public ResponseEntity<Map<String, Object>> deleteRateLimiter(@PathVariable String routeId) {
@@ -117,17 +119,17 @@ public class PluginController {
         }
     }
 
-    // ==================== 自定义 Header 插件 API (已移除) ====================
+    // ==================== Custom Header Plugin API (removed) ====================
     // Note: Custom Header APIs removed - use SCG native AddRequestHeader filter instead
-    // 路由配置示例：
+    // Route config example:
     // filters:
     //   - AddRequestHeader=X-Forwarded-For, 10.0.0.1
     //   - AddRequestHeader=X-Custom-Header, ${CUSTOM_VALUE}
 
-    // ==================== IP 过滤器 API ====================
+    // ==================== IP Filter Plugin API ====================
 
     /**
-     * 获取所有 IP 过滤器配置
+     * Get all IP filter configurations.
      */
     @GetMapping("/ip-filters")
     public ResponseEntity<Map<String, Object>> getAllIPFilters() {
@@ -140,7 +142,7 @@ public class PluginController {
     }
 
     /**
-     * 根据路由 ID 获取 IP 过滤器配置
+     * Get IP filter configuration by route ID.
      */
     @GetMapping("/ip-filters/{routeId}")
     public ResponseEntity<Map<String, Object>> getIPFilterByRoute(@PathVariable String routeId) {
@@ -159,7 +161,7 @@ public class PluginController {
     }
 
     /**
-     * 创建 IP 过滤器配置
+     * Create IP filter configuration.
      */
     @PostMapping("/ip-filters")
     public ResponseEntity<Map<String, Object>> createIPFilter(@RequestBody PluginConfig.IPFilterConfig config) {
@@ -179,7 +181,7 @@ public class PluginController {
     }
 
     /**
-     * 更新 IP 过滤器配置
+     * Update IP filter configuration.
      */
     @PutMapping("/ip-filters/{routeId}")
     public ResponseEntity<Map<String, Object>> updateIPFilter(
@@ -201,7 +203,7 @@ public class PluginController {
     }
 
     /**
-     * 删除 IP 过滤器配置
+     * Delete IP filter configuration.
      */
     @DeleteMapping("/ip-filters/{routeId}")
     public ResponseEntity<Map<String, Object>> deleteIPFilter(@PathVariable String routeId) {
@@ -222,7 +224,7 @@ public class PluginController {
     // ==================== Timeout Plugin API ====================
     
     /**
-     * 获取所有超时配置
+     * Get all timeout configurations.
      */
     @GetMapping("/timeouts")
     public ResponseEntity<Map<String, Object>> getAllTimeouts() {
@@ -235,7 +237,7 @@ public class PluginController {
     }
     
     /**
-     * 根据路由 ID 获取超时配置
+     * Get timeout configuration by route ID.
      */
     @GetMapping("/timeouts/{routeId}")
     public ResponseEntity<Map<String, Object>> getTimeoutByRoute(@PathVariable String routeId) {
@@ -254,7 +256,7 @@ public class PluginController {
     }
     
     /**
-     * 创建超时配置
+     * Create timeout configuration.
      */
     @PostMapping("/timeouts")
     public ResponseEntity<Map<String, Object>> createTimeout(@RequestBody PluginConfig.TimeoutConfig config) {
@@ -274,7 +276,7 @@ public class PluginController {
     }
     
     /**
-     * 更新超时配置
+     * Update timeout configuration.
      */
     @PutMapping("/timeouts/{routeId}")
     public ResponseEntity<Map<String, Object>> updateTimeout(
@@ -296,7 +298,7 @@ public class PluginController {
     }
     
     /**
-     * 删除超时配置
+     * Delete timeout configuration.
      */
     @DeleteMapping("/timeouts/{routeId}")
     public ResponseEntity<Map<String, Object>> deleteTimeout(@PathVariable String routeId) {
@@ -314,10 +316,10 @@ public class PluginController {
         }
     }
 
-    // ==================== 通用 API ====================
+    // ==================== Common API ====================
 
     /**
-     * 获取所有插件配置
+     * Get all plugin configurations.
      */
     @GetMapping
     public ResponseEntity<Map<String, Object>> getAllPlugins() {
@@ -330,7 +332,7 @@ public class PluginController {
     }
 
     /**
-     * 批量更新插件配置
+     * Batch update plugin configurations.
      */
     @PostMapping("/batch")
     public ResponseEntity<Map<String, Object>> batchUpdatePlugins(@RequestBody PluginConfig plugins) {
@@ -349,7 +351,7 @@ public class PluginController {
     }
 
     /**
-     * 获取插件统计信息
+     * Get plugin statistics.
      */
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getPluginStats() {
