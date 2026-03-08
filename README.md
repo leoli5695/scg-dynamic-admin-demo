@@ -1,115 +1,128 @@
-# Spring Cloud Gateway Dynamic Management Demo
+# Spring Cloud Gateway Dynamic Management System
 
-基于 Spring Cloud Gateway 4.1 + Spring Boot 3.2 + Nacos 2.4.3 构建的动态网关管理系统，提供可视化配置控制台和实时热更新。
+A production-ready dynamic API gateway management system built on **Spring Cloud Gateway 4.1**, **Spring Boot 3.2** and **Nacos 2.4.3**. Manage routes, services and plugins in real time through a clean web console — no YAML editing, no restarts required.
 
 <div align="center">
 
 [![Spring Cloud Gateway](https://img.shields.io/badge/Spring%20Cloud%20Gateway-4.1.0-blue)](https://spring.io/projects/spring-cloud-gateway)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.0-green)](https://spring.io/projects/spring-boot)
 [![Nacos](https://img.shields.io/badge/Nacos-2.4.3-orange)](https://nacos.io/)
+[![Java](https://img.shields.io/badge/Java-17-red)](https://openjdk.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
 </div>
 
 ---
 
-## 📋 功能概览
+## ✨ Features
 
-通过 Web 控制台即可动态管理路由、服务、插件，无需修改任何 YAML 文件。
-
-| 功能 | 说明 |
-|------|------|
-| ✅ 可视化控制台 | 基于 Thymeleaf 的 Web 管理界面 |
-| ✅ 实时热更新 | 配置变更即时生效，无需重启 |
-| ✅ 动态路由 | 支持 Path/Host/Method/Header 等多种条件 |
-| ✅ 负载均衡 | 轮询/加权轮询/随机，支持实例权重 |
-| ✅ 限流插件 | 基于 Sentinel 和 Redis，支持窗口期和请求数配置 |
-| ✅ IP 访问控制 | 白名单/黑名单模式 |
-| ✅ 自定义请求头 | 支持变量替换（如 `${random.uuid}`） |
-| ✅ 超时插件 | 按路由配置连接超时和响应超时，超时返回 504 |
-
----
-
-## 🏗️ 系统架构
-
-```
-┌─────────────┐
-│   Client    │
-└──────╤──────┘
-               │
-               ▼
-┌─────────────────────────┐
-│        My-Gateway             │
-│  ───────────────────────  │
-│  TimeoutGlobalFilter          │
-│  IPFilterGlobalFilter          │
-│  RateLimiterGlobalFilter       │
-│  DynamicCustomHeaderFilter     │
-│  NacosLoadBalancerFilter       │
-│  StaticProtocolGlobalFilter    │
-└────────────┬────────────┘
-                    │
-                    ▼
-           ┌────────────┐
-           │ Backend Svc │
-           └────────────┘
-```
-
-**配置流转:**
-```
-Gateway Admin → Nacos Config Center → My-Gateway (实时同步)
-```
+| Feature | Description |
+|---------|-------------|
+| 🖥️ **Web Admin Console** | Thymeleaf-based UI to manage routes, services and plugins |
+| ⚡ **Real-time Hot Reload** | Config changes propagate to the gateway instantly via Nacos listeners + `RefreshRoutesEvent` |
+| 🛣️ **Dynamic Routing** | Create / update / **delete** routes on the fly; supports Path, Host, Method, Header predicates |
+| ⚖️ **Load Balancing** | Round-robin, **deterministic weighted round-robin**, and random strategies |
+| 🔒 **IP Access Control** | Whitelist / blacklist mode per route; rejects with HTTP 403 |
+| 🚦 **Rate Limiting** | Per-route request rate limiting (Sentinel / Redis backed) |
+| 📨 **Custom Request Headers** | Inject headers dynamically; supports variable substitution (e.g. `${random.uuid}`) |
+| ⏱️ **Per-route Timeout** | Independent connect-timeout and response-timeout per route; returns HTTP 504 on timeout |
+| 🔄 **static:// Protocol** | Route to statically configured backend instances without a service registry |
+| 🔍 **Nacos Discovery LB** | Native Nacos service discovery with weighted round-robin for `lb://` routes |
 
 ---
 
-## 🚀 快速开始
+## 🏗️ Architecture
 
-### 环境要求
+```
+┌──────────────────────────────────────────────┐
+│                    Client                    │
+└────────────────────┬─────────────────────────┘
+                     │ HTTP Request
+                     ▼
+┌──────────────────────────────────────────────┐
+│                  My-Gateway                  │
+│  ┌────────────────────────────────────────┐  │
+│  │         Global Filter Chain            │  │
+│  │  TimeoutGlobalFilter        (order -200)│  │
+│  │  IPFilterGlobalFilter       (order -100)│  │
+│  │  RateLimiterGlobalFilter    (order -50) │  │
+│  │  DynamicCustomHeaderFilter  (order -10) │  │
+│  │  NacosLoadBalancerFilter    (order 10150│  │
+│  │  StaticProtocolGlobalFilter (order 10001│  │
+│  └────────────────────────────────────────┘  │
+│  Route Definitions ← NacosRouteDefinitionLocator│
+└────────────────────┬─────────────────────────┘
+                     │
+                     ▼
+         ┌───────────────────┐
+         │   Backend Service  │
+         └───────────────────┘
+
+┌──────────────────────────────────────────────┐
+│              Gateway Admin (8080)            │
+│  RouteController / ServiceController /       │
+│  PluginController  →  Nacos Config Center    │
+└──────────────────────────────────────────────┘
+```
+
+**Config propagation flow:**
+```
+Gateway Admin  ──write──►  Nacos Config Center  ──listener──►  My-Gateway
+                                                               (RefreshRoutesEvent / in-memory update)
+```
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
 - JDK 17+
 - Maven 3.8+
 - Nacos 2.4.3
 - Redis 6.0+
 
-### Step 1: 启动依赖服务
+### Step 1 — Start Dependencies
 
-**启动 Nacos:**
+**Nacos (standalone mode):**
 ```bash
 cd nacos/bin
-# Linux/Mac
+# Linux / macOS
 sh startup.sh -m standalone
 # Windows
 startup.cmd -m standalone
 ```
 
-**启动 Redis:**
+**Redis:**
 ```bash
 redis-server
 ```
 
-### Step 2: 初始化 Nacos 配置
+### Step 2 — Bootstrap Nacos Configurations
 
-在 Nacos 控制台（Namespace: **public**）创建以下配置：
+Create the following three config items in the Nacos console (Namespace: **public**, Group: **DEFAULT_GROUP**).
 
-**gateway-routes.json**
+**`gateway-routes.json`**
 ```json
 {
+  "version": "1.0",
   "routes": [
     {
-      "id": "user-route",
-      "uri": "static://user-service",
-      "predicates": [{"name": "Path", "args": {"pattern": "/api/**"}}]
+      "id": "demo-route",
+      "uri": "static://demo-service",
+      "predicates": [{"name": "Path", "args": {"pattern": "/api/**"}}],
+      "filters": [{"name": "StripPrefix", "args": {"parts": "1"}}]
     }
   ]
 }
 ```
 
-**gateway-services.json**
+**`gateway-services.json`**
 ```json
 {
   "version": "1.0",
   "services": [
     {
-      "name": "user-service",
+      "name": "demo-service",
       "loadBalancer": "weighted",
       "instances": [
         {"ip": "127.0.0.1", "port": 9000, "weight": 1, "healthy": true, "enabled": true},
@@ -120,7 +133,7 @@ redis-server
 }
 ```
 
-**gateway-plugins.json**
+**`gateway-plugins.json`**
 ```json
 {
   "version": "1.0",
@@ -129,7 +142,7 @@ redis-server
     "ipFilters": [],
     "timeouts": [
       {
-        "routeId": "user-route",
+        "routeId": "demo-route",
         "connectTimeout": 5000,
         "responseTimeout": 10000,
         "enabled": true
@@ -139,149 +152,186 @@ redis-server
 }
 ```
 
-### Step 3: 启动服务
+### Step 3 — Run Services
 
 ```bash
-# Demo 服务（实例1）
-cd demo-service
-mvn spring-boot:run
+# Backend demo service — instance 1 (port 9000)
+cd demo-service && mvn spring-boot:run
 
-# Demo 服务（实例2，另开终端）
+# Backend demo service — instance 2 (port 9001, open a new terminal)
 mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=9001"
 
-# My-Gateway
-cd my-gateway
-mvn spring-boot:run
+# API Gateway
+cd my-gateway && mvn spring-boot:run
 
-# Gateway Admin
-cd gateway-admin
-mvn spring-boot:run
+# Admin Console
+cd gateway-admin && mvn spring-boot:run
 ```
 
-### Step 4: 访问地址
+### Step 4 — Access
 
-| 组件 | URL | 说明 |
-|------|-----|------|
-| **Gateway Admin 控制台** | http://localhost:8080 | Web 管理界面 |
-| **网关入口** | http://localhost:80 | 请求入口 |
-| **Demo 服务** | http://localhost:9000 | 示例后端服务 |
-| **Nacos 控制台** | http://localhost:8848/nacos | 配置中心 |
+| Component | URL | Notes |
+|-----------|-----|-------|
+| **Admin Console** | http://localhost:8080 | Web UI for managing all config |
+| **Gateway** | http://localhost:80 | API entry point |
+| **Demo Service** | http://localhost:9000 | Example backend |
+| **Nacos Console** | http://localhost:8848/nacos | Config & service registry |
 
 ---
 
-## 🔧 插件使用
+## 🔧 Plugin Reference
 
-### 超时插件
+### ⏱️ Timeout Plugin
 
-支持按路由配置连接超时和响应超时，超时后网关返回 **HTTP 504 Gateway Timeout**。
+Configures independent connect and response timeouts per route. On timeout the gateway returns **HTTP 504 Gateway Timeout**.
 
 ```json
 {
-  "routeId": "user-route",
+  "routeId": "demo-route",
   "connectTimeout": 3000,
   "responseTimeout": 5000,
   "enabled": true
 }
 ```
 
-| 参数 | 说明 | 单位 |
-|------|------|------|
-| `connectTimeout` | TCP 连接超时 | 毫秒 |
-| `responseTimeout` | 发起请求到收到完整响应的总超时 | 毫秒 |
+| Field | Description | Unit |
+|-------|-------------|------|
+| `connectTimeout` | TCP connection timeout | ms |
+| `responseTimeout` | Total time from request sent to full response received | ms |
 
-> **原理**：通过写入 SCG 路由 metadata（`RouteMetadataUtils`），由 `NettyRoutingFilter` 在 Netty 底层应用超时。
+> **How it works:** `TimeoutGlobalFilter` (order = -200) injects values into SCG route metadata via `RouteMetadataUtils`. `NettyRoutingFilter` reads them and applies the timeouts at the Netty `HttpClient` level.
 
-### 限流插件
+### 🚦 Rate Limiting Plugin
 
-基于 Sentinel 或 Redis，支持按路由限制请求速率。
+Per-route request rate limiting backed by Redis or Sentinel.
 
 ```json
 {
-  "routeId": "user-route",
+  "routeId": "demo-route",
   "maxRequests": 100,
   "windowSeconds": 60,
   "enabled": true
 }
 ```
 
-### IP 访问控制插件
+### 🔒 IP Access Control Plugin
 
-支持白名单和黑名单模式，拒绝时返回 **HTTP 403 Forbidden**。
+Whitelist or blacklist IPs / CIDR ranges per route. Blocked requests receive **HTTP 403 Forbidden**.
 
 ```json
 {
-  "routeId": "user-route",
+  "routeId": "demo-route",
   "mode": "whitelist",
   "ipList": ["192.168.1.0/24", "127.0.0.1"],
   "enabled": true
 }
 ```
 
-### 负载均衡策略
+### 📨 Custom Request Header Plugin
 
-`gateway-services.json` 中 `loadBalancer` 支持三种策略：
+Inject arbitrary headers before forwarding to backends.
 
-| 策略值 | 说明 |
-|---------|------|
-| `round-robin` | 轮询（默认） |
-| `weighted` | **确定性加权轮询**，严格按 `weight` 比例分配 |
-| `random` | 随机 |
+```json
+{
+  "routeId": "demo-route",
+  "headers": {
+    "X-Request-Id": "${random.uuid}",
+    "X-Gateway-Version": "1.0"
+  },
+  "enabled": true
+}
+```
 
 ---
 
-## 📁 项目结构
+## ⚖️ Load Balancing Strategies
+
+Set `loadBalancer` in `gateway-services.json` to one of:
+
+| Value | Algorithm | Notes |
+|-------|-----------|-------|
+| `round-robin` | Round-robin | Default |
+| `weighted` | **Deterministic weighted round-robin** | Strictly respects `weight` ratios using an `AtomicLong` counter |
+| `random` | Random | Uniform random selection |
+
+Example — weight ratio 1 : 2 guarantees every 3 requests: 1 → instance A, 2 → instance B.
+
+---
+
+## 🔄 Real-time Configuration Updates
+
+All configuration changes are propagated to the gateway **without restart**:
+
+| Change | Mechanism | Effective latency |
+|--------|-----------|-------------------|
+| Add / update / **delete route** | Nacos listener → `RefreshRoutesEvent` → SCG `CachingRouteLocator` rebuild | < 1 s |
+| Add / update / delete service | Nacos listener → `StaticProtocolGlobalFilter` cache cleared | < 1 s |
+| Add / update / delete plugin | Nacos listener → `PluginConfigManager` in-memory update | < 1 s |
+
+> Deleting a route in the Admin Console will cause the gateway to return **HTTP 404** immediately for that path.
+
+---
+
+## 📁 Project Structure
 
 ```
 scg-dynamic-admin-demo/
-├── gateway-admin/           # Web 管理控制台
-│   ├── controller/          # REST API + 页面控制器
-│   ├── model/               # 配置模型（PluginConfig, RouteConfig...）
-│   ├── service/             # 业务逻辑层
-│   └── resources/templates/ # Thymeleaf 页面
-├── my-gateway/              # 网关核心服务
-│   ├── filter/              # 全局过滤器
-│   │   ├── TimeoutGlobalFilter.java        # 超时过滤器
-│   │   ├── IPFilterGlobalFilter.java       # IP 访问控制
-│   │   ├── NacosLoadBalancerFilter.java    # Nacos 负载均衡
-│   │   └── StaticProtocolGlobalFilter.java # static:// 协议处理
-│   ├── ratelimiter/         # 限流实现（Sentinel + Redis）
-│   ├── plugin/              # 插件配置管理器
-│   └── route/               # 动态路由加载
-├── demo-service/            # 示例后端服务
-├── nacos/                   # Nacos 服务器（子模块）
-└── README.md
+├── gateway-admin/                   # Web admin console (port 8080)
+│   ├── controller/                  # REST API + Thymeleaf page controllers
+│   ├── model/                       # Config models: RouteDefinition, ServiceDefinition, PluginConfig …
+│   ├── service/                     # Business logic: RouteService, ServiceManager, PluginService …
+│   └── resources/templates/         # Thymeleaf HTML templates
+├── my-gateway/                      # SCG gateway core (port 80)
+│   ├── filter/
+│   │   ├── TimeoutGlobalFilter.java          # Per-route timeout (order -200)
+│   │   ├── IPFilterGlobalFilter.java         # IP whitelist / blacklist (order -100)
+│   │   ├── DynamicCustomHeaderGlobalFilter.java # Custom headers injection
+│   │   ├── NacosLoadBalancerFilter.java      # lb:// Nacos discovery load balancer
+│   │   └── StaticProtocolGlobalFilter.java   # static:// static instance resolver
+│   ├── ratelimiter/                 # Rate limiting (Sentinel + Redis)
+│   ├── plugin/                      # PluginConfigManager — shared plugin config store
+│   └── route/
+│       └── NacosRouteDefinitionLocator.java  # Dynamic route loader from Nacos
+├── demo-service/                    # Sample Spring Boot backend (port 9000)
+└── nacos/                           # Nacos server (git submodule)
 ```
 
 ---
 
-## ⚠️ 运行环境说明
+## 🛠️ Tech Stack
 
-本项目为**学习/演示**用途，生产环境部署还需考虑：
-
-- **持久化**：目前数据全部存储在 Nacos 配置中，建议生产进入持久层
-- **安全**：鉴权认证、SSL/TLS
-- **监控**： Prometheus 指标、分布式链路追踪
-- **高可用**：集群部署、Nacos 集群、Redis 集群
+| Layer | Technology |
+|-------|------------|
+| Gateway | Spring Cloud Gateway 4.1 |
+| Runtime | Spring Boot 3.2, Java 17 |
+| Config & Discovery | Nacos 2.4.3 |
+| Rate Limiting | Sentinel, Redis |
+| Admin UI | Thymeleaf, Bootstrap |
+| Build | Maven |
 
 ---
 
-## 📄 文档
+## ⚠️ Production Considerations
 
-- **[INTEGRATION_GUIDE.md](./INTEGRATION_GUIDE.md)** - 详细架构说明和集成指南
-- **[ADVANCED_FEATURES.md](./ADVANCED_FEATURES.md)** - 高级功能：分布式限流、IP 访问控制、CORS
+This project is designed as a **learning / demo** showcase. For production use, consider:
+
+- **Persistence** — route and plugin data lives only in Nacos; add a persistent storage layer for audit history
+- **Security** — add authentication/authorization to the Admin Console; enable TLS on the gateway
+- **Observability** — integrate Prometheus metrics, distributed tracing (Zipkin / SkyWalking)
+- **High Availability** — deploy gateway in cluster mode, use Nacos cluster, Redis Cluster / Sentinel
 
 ---
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) file.
+MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
 <div align="center">
 
-**Made with ❤️ by leoli**
+**Built with ❤️ by leoli**
 
-If you find this helpful, please give it a ⭐ Star!
+Found this useful? Give it a ⭐ Star!
 
 </div>
