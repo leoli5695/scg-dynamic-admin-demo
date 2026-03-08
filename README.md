@@ -213,8 +213,8 @@ This demo focuses on core dynamic routing, load balancing and plugin system. Pro
 
 ## 📄 Documentation
 
-- **[INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md)** - Complete integration guide with architecture details
-- **[ADVANCED_FEATURES.md](ADVANCED_FEATURES.md)** - Advanced features: distributed rate limiting, IP access control, CORS
+- **[INTEGRATION_GUIDE.md](./INTEGRATION_GUIDE.md)** - Complete integration guide with architecture details
+- **[ADVANCED_FEATURES.md](./ADVANCED_FEATURES.md)** - Advanced features: distributed rate limiting, IP access control, CORS
 
 ---
 
