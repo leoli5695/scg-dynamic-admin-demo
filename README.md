@@ -169,7 +169,7 @@ java -jar target/gateway-admin-1.0.0.jar
 
 | Component | URL | Description |
 |-----------|-----|-------------|
-| **Gateway Admin Console** | http://localhost:8081 | Web management UI |
+| **Gateway Admin Console** | http://localhost:8080 | Web management UI |
 | **Gateway API** | http://localhost:80 | Gateway entry point |
 | **Demo Service** | http://localhost:9000 | Sample backend service |
 | **Nacos Console** | http://localhost:8848/nacos | Configuration management |
