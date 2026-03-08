@@ -13,6 +13,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Rate Limiter Service
+ * Business logic for rate limiter configuration management
+ * 
+ * @author leoli
+ */
 @Slf4j
 @Service
 public class RateLimiterService {

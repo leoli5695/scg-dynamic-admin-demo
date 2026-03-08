@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -57,7 +58,7 @@ public class ServiceManager {
         
         // 先从缓存获取
         ServiceDefinition service = serviceCache.get(name);
-        if (service != null) {
+        if (Objects.nonNull(service)) {
             return service;
         }
         

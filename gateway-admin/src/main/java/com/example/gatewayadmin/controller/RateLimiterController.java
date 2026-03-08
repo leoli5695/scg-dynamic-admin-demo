@@ -11,6 +11,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Rate Limiter Controller
+ * REST API for rate limiter configuration management
+ * 
+ * @author leoli
+ */
 @Slf4j
 @RestController
 @RequestMapping("/api/rate-limiter")

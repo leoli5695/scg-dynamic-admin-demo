@@ -17,6 +17,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Rate Limiter Configuration Manager
  * Load rate limiter config from Nacos
+ * 
+ * @author leoli
  */
 @Slf4j
 @Component

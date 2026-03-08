@@ -19,9 +19,11 @@ import org.springframework.stereotype.Component;
 /**
  * Sentinel Slot Chain Builder with Redis Rate Limiting
  * <p>
- * 流程：
- * 1. RedisRateLimitSlot - 优先 Redis 全局限流
- * 2. FlowSlot - 降级到 Sentinel 单机限流
+ * Flow:
+ * 1. RedisRateLimitSlot - Redis global rate limiting (priority)
+ * 2. FlowSlot - Sentinel local rate limiting (fallback)
+ * 
+ * @author leoli
  */
 @Component
 public class RedisRateLimitSlotChainBuilder implements SlotChainBuilder {
@@ -38,14 +40,14 @@ public class RedisRateLimitSlotChainBuilder implements SlotChainBuilder {
     public ProcessorSlotChain build() {
         DefaultProcessorSlotChain chain = new DefaultProcessorSlotChain();
 
-        // 优先：Redis 全局限流 Slot
-        chain.addLast(new RedisGlobalRateLimitSlot(redisRateLimiter, configManager));
-
-        // Sentinel 默认 Slot
+        // Sentinel default slots
         chain.addLast(new NodeSelectorSlot());
         chain.addLast(new LogSlot());
         chain.addLast(new StatisticSlot());
-        chain.addLast(new FlowSlot());      // Sentinel 本地限流（降级用）
+        // Redis rate limiting slot (priority higher than FlowSlot)
+        chain.addLast(new RedisGlobalRateLimitSlot(redisRateLimiter, configManager));
+        // Sentinel local rate limiting (fallback)
+        chain.addLast(new FlowSlot());
         chain.addLast(new DegradeSlot());
         chain.addLast(new SystemSlot());
 
@@ -53,8 +55,10 @@ public class RedisRateLimitSlotChainBuilder implements SlotChainBuilder {
     }
 
     /**
-     * Redis 全局限流 Slot
-     * 优先级高于 FlowSlot
+     * Redis Global Rate Limit Slot
+     * Priority higher than FlowSlot
+     * 
+     * @author leoli
      */
     public static class RedisGlobalRateLimitSlot extends AbstractLinkedProcessorSlot {
 
@@ -71,16 +75,16 @@ public class RedisRateLimitSlotChainBuilder implements SlotChainBuilder {
         public void entry(Context context, ResourceWrapper resourceWrapper, Object o, int i, boolean b, Object... objects) throws Throwable {
             String routeId = context.getName();
 
-            // 获取限流配置
+            // Get rate limiter config
             RateLimiterConfig config = configManager.getRateLimiterConfig(routeId);
 
             if (config == null || !config.isEnabled()) {
-                // 无配置，跳过，让后续 Slot 处理
+                // No config, skip and let next Slot handle
                 fireNext(context, resourceWrapper, o, i, b, objects);
                 return;
             }
 
-            // ========== 优先：Redis 全局限流 ==========
+            // Priority: Redis global rate limiting
             if (redisRateLimiter.isRedisAvailable() && config.getRedisQps() > 0) {
                 String rateLimitKey = buildKey(routeId, context, config);
 
@@ -88,40 +92,39 @@ public class RedisRateLimitSlotChainBuilder implements SlotChainBuilder {
                         rateLimitKey, config.getRedisQps(), config.getRedisBurstCapacity());
 
                 if (result.isAllowed()) {
-                    // Redis 放行，传递上下文让后续 Slot 统计
+                    // Redis allowed, pass to next Slot for statistics
                     context.setOrigin(rateLimitKey);
                     fireNext(context, resourceWrapper, o, i, b, objects);
                     return;
                 } else if (!result.isFallback()) {
-                    // Redis 拒绝，抛出 FlowException
+                    // Redis rejected, throw FlowException
                     log.warn("Redis rate limit rejected: {}", rateLimitKey);
                     throw new FlowException("Redis rate limit exceeded: " + rateLimitKey);
                 }
-                // 降级到 Sentinel
+                // Fallback to Sentinel
             }
 
-            // ========== 降级到 Sentinel ==========
-            // 需要手动埋点，让 Sentinel 进行限流判断
+            // Fallback to Sentinel
             log.debug("Fallback to Sentinel for route: {}", routeId);
             
             try {
-                // 使用 SphU.entry 让 Sentinel 进行限流埋点
+                // Use SphU.entry for Sentinel rate limiting
                 com.alibaba.csp.sentinel.Entry entry = com.alibaba.csp.sentinel.SphU.entry(routeId);
-                // 放行，让后续 Slot 统计
+                // Pass to next Slot for statistics
                 fireNext(context, resourceWrapper, o, i, b, objects);
             } catch (BlockException e) {
-                // Sentinel 限流拒绝
+                // Sentinel rejected
                 log.warn("Sentinel rate limit rejected for route: {}", routeId);
                 throw e;
             } catch (Exception e) {
-                // 其他异常，记录并放行
+                // Other exceptions, log and pass through
                 fireNext(context, resourceWrapper, o, i, b, objects);
             }
         }
 
         @Override
         public void exit(Context context, ResourceWrapper resourceWrapper, int i, Object... objects) {
-            // Sentinel 会自动处理 exit
+            // Sentinel auto handles exit
         }
 
         private String buildKey(String routeId, Context context, RateLimiterConfig config) {
@@ -129,20 +132,20 @@ public class RedisRateLimitSlotChainBuilder implements SlotChainBuilder {
 
             String keyType = config.getKeyType();
             if ("ip".equalsIgnoreCase(keyType)) {
-                // 优先使用 X-Forwarded-For 或 X-Real-IP
+                // Try X-Forwarded-For or X-Real-IP
                 String clientIp = extractClientIp(context);
                 key.append(":").append(clientIp);
             } else if ("user".equalsIgnoreCase(keyType)) {
                 String userId = context.getOrigin();
                 key.append(":").append(userId != null ? userId : "anonymous");
             }
-            // route: 只用 routeId
+            // route: use only routeId
 
             return key.toString();
         }
 
         private String extractClientIp(Context context) {
-            // 从 Entry 中尝试获取 origin（通常是调用方标识）
+            // Try to get origin from context
             String origin = context.getOrigin();
             if (origin != null && !origin.isEmpty()) {
                 return origin;
@@ -151,7 +154,7 @@ public class RedisRateLimitSlotChainBuilder implements SlotChainBuilder {
         }
 
         private void fireNext(Context context, ResourceWrapper resourceWrapper, Object o, int i, boolean b, Object... objects) throws Throwable {
-            // 调用下一个 Slot
+            // Call next Slot
             if (this.getNext() != null) {
                 this.getNext().entry(context, resourceWrapper, o, i, b, objects);
             }

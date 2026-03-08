@@ -607,7 +607,114 @@ public class YourCustomFilter implements GlobalFilter, Ordered {
 
 ---
 
-## 6. Deployment Notes
+## 6. Rate Limiting (Advanced)
+
+### Overview
+
+The gateway implements a dual-strategy rate limiting system:
+
+1. **Redis Global Rate Limiting** - Distributed rate limiting across multiple gateway instances
+2. **Sentinel Local Rate Limiting** - Fallback to single-instance rate limiting when Redis is unavailable
+
+### Architecture
+
+```
+Request -> Redis Global Rate Limiting (Priority)
+                |
+                v
+        [Available] --> Allow, Continue
+                |
+                v
+        [Rejected] --> Return 429
+                |
+                v
+        [Unavailable] --> Fallback to Sentinel
+                                        |
+                                        v
+                                [Sentinel QPS Limit]
+```
+
+### Configuration
+
+**Rate Limiter Config (Nacos: `gateway-rate-limiter.json`):**
+```json
+{
+  "rateLimiters": [
+    {
+      "routeId": "user-service",
+      "enabled": true,
+      "redisQps": 100,
+      "redisBurstCapacity": 200,
+      "keyPrefix": "rate_limit:",
+      "keyType": "combined",
+      "sentinelQps": 50,
+      "sentinelThresholdType": "QPS",
+      "sentinelControlStrategy": "reject",
+      "fallbackToSentinel": true,
+      "redisFallbackTimeoutMs": 5000
+    }
+  ]
+}
+```
+
+### Configuration Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enabled` | boolean | true | Enable rate limiting |
+| `redisQps` | int | 100 | Redis global QPS limit (0 = disabled) |
+| `redisBurstCapacity` | int | 200 | Max burst requests |
+| `keyPrefix` | String | "rate_limit:" | Redis key prefix |
+| `keyType` | String | "combined" | Key type: route/ip/user/combined |
+| `sentinelQps` | int | 50 | Sentinel fallback QPS limit |
+| `sentinelThresholdType` | String | "QPS" | Threshold type: QPS/threads |
+| `fallbackToSentinel` | boolean | true | Enable Sentinel fallback |
+| `redisFallbackTimeoutMs` | long | 5000 | Fallback timeout after Redis failure |
+
+### Admin API
+
+**Gateway-Admin provides REST API for rate limiter management:**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/rate-limiter | Get all rate limiter configs |
+| GET | /api/rate-limiter/{routeId} | Get config by route ID |
+| POST | /api/rate-limiter | Create/Update config |
+| DELETE | /api/rate-limiter/{routeId} | Delete config |
+| POST | /api/rate-limiter/refresh | Refresh configs from Nacos |
+
+### Response Headers
+
+When rate limit is triggered, the following headers are returned:
+
+| Header | Description |
+|--------|-------------|
+| X-RateLimit-Limit | Maximum requests allowed |
+| X-RateLimit-Remaining | Remaining requests in window |
+| X-RateLimit-Type | Rate limiter type: redis/sentinel |
+
+### Key Components
+
+**RedisRateLimiter.java** - Core Redis rate limiting with sliding window algorithm:
+- Health check every 10 seconds
+- Auto fallback to Sentinel when Redis fails
+- 5-second cooldown before recovering
+
+**RedisRateLimitSlotChainBuilder.java** - Sentinel SPI extension:
+- Custom Slot chain with Redis rate limiting priority
+- Falls back to Sentinel when Redis unavailable
+
+**SentinelBlockHandler.java** - 429 response handler:
+- Returns standard HTTP 429 status
+- Includes X-RateLimit-* headers
+
+**RateLimiterConfigManager.java** - Nacos configuration loader:
+- Loads config from Nacos on startup
+- Supports hot reload
+
+---
+
+## 7. Deployment Notes
 
 ### Prerequisites
 

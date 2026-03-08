@@ -4,7 +4,9 @@ import lombok.Data;
 
 /**
  * Rate Limiter Configuration
- * 统一配置 Redis 全局限流和 Sentinel 单机限流参数
+ * Unified config for Redis global rate limiting and Sentinel local rate limiting
+ * 
+ * @author leoli
  */
 @Data
 public class RateLimiterConfig {
