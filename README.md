@@ -24,7 +24,6 @@ A production-ready dynamic API gateway management system built on **Spring Cloud
 | ⚖️ **Load Balancing** | Round-robin, **deterministic weighted round-robin**, and random strategies |
 | 🔒 **IP Access Control** | Whitelist / blacklist mode per route; rejects with HTTP 403 |
 | 🚦 **Rate Limiting** | Per-route request rate limiting (Sentinel / Redis backed) |
-| 📨 **Custom Request Headers** | Inject headers dynamically; supports variable substitution (e.g. `${random.uuid}`) |
 | ⏱️ **Per-route Timeout** | Independent connect-timeout and response-timeout per route; returns HTTP 504 on timeout |
 | 🔄 **static:// Protocol** | Route to statically configured backend instances without a service registry |
 | 🔍 **Nacos Discovery LB** | Native Nacos service discovery with weighted round-robin for `lb://` routes |
@@ -227,20 +226,6 @@ Whitelist or blacklist IPs / CIDR ranges per route. Blocked requests receive **H
 }
 ```
 
-### 📨 Custom Request Header Plugin
-
-Inject arbitrary headers before forwarding to backends.
-
-```json
-{
-  "routeId": "demo-route",
-  "headers": {
-    "X-Request-Id": "${random.uuid}",
-    "X-Gateway-Version": "1.0"
-  },
-  "enabled": true
-}
-```
 
 ---
 
@@ -285,7 +270,6 @@ scg-dynamic-admin-demo/
 │   ├── filter/
 │   │   ├── TimeoutGlobalFilter.java          # Per-route timeout (order -200)
 │   │   ├── IPFilterGlobalFilter.java         # IP whitelist / blacklist (order -100)
-│   │   ├── DynamicCustomHeaderGlobalFilter.java # Custom headers injection
 │   │   ├── NacosLoadBalancerFilter.java      # lb:// Nacos discovery load balancer
 │   │   └── StaticProtocolGlobalFilter.java   # static:// static instance resolver
 │   ├── ratelimiter/                 # Rate limiting (Sentinel + Redis)
