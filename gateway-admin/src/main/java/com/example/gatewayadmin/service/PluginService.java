@@ -41,8 +41,22 @@ public class PluginService {
 
     /**
      * 获取所有插件配置
+     * 缓存miss时从Nacos查询
      */
     public PluginConfig getAllPlugins() {
+        if (pluginCache == null || (pluginCache.getRateLimiters() == null && pluginCache.getCustomHeaders() == null)) {
+            log.info("Plugin cache is empty, reloading from Nacos");
+            loadPluginsFromNacos();
+        }
+        return pluginCache;
+    }
+    
+    /**
+     * 强制从Nacos刷新缓存
+     */
+    public PluginConfig refreshFromNacos() {
+        log.info("Force refreshing plugins from Nacos");
+        loadPluginsFromNacos();
         return pluginCache;
     }
 

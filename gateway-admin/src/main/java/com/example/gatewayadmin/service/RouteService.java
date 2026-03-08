@@ -49,8 +49,23 @@ public class RouteService {
 
     /**
      * 根据ID获取路由
+     * 缓存miss时从Nacos查询，确保数据不丢失
      */
     public RouteDefinition getRouteById(String id) {
+        if (id == null || id.isEmpty()) {
+            return null;
+        }
+        
+        // 先从缓存获取
+        RouteDefinition route = routeCache.get(id);
+        if (route != null) {
+            return route;
+        }
+        
+        // 缓存miss，从Nacos重新加载
+        log.info("Route not found in cache, reloading from Nacos: {}", id);
+        reloadRoutes();
+        
         return routeCache.get(id);
     }
 
@@ -185,6 +200,15 @@ public class RouteService {
             .filter(r -> r.getUri() != null && r.getUri().startsWith("http"))
             .count());
         return stats;
+    }
+
+    /**
+     * 强制从Nacos刷新缓存
+     */
+    public List<RouteDefinition> refreshFromNacos() {
+        log.info("Force refreshing routes from Nacos");
+        loadRoutesFromNacos();
+        return getAllRoutes();
     }
 
     /**

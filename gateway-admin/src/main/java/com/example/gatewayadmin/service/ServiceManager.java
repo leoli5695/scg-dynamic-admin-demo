@@ -48,9 +48,33 @@ public class ServiceManager {
 
     /**
      * 根据名称获取服务
+     * 缓存miss时从Nacos查询，确保数据不丢失
      */
     public ServiceDefinition getServiceByName(String name) {
+        if (name == null || name.isEmpty()) {
+            return null;
+        }
+        
+        // 先从缓存获取
+        ServiceDefinition service = serviceCache.get(name);
+        if (service != null) {
+            return service;
+        }
+        
+        // 缓存miss，从Nacos重新加载
+        log.info("Service not found in cache, reloading from Nacos: {}", name);
+        loadServicesFromNacos();
+        
         return serviceCache.get(name);
+    }
+    
+    /**
+     * 强制从Nacos刷新缓存
+     */
+    public List<ServiceDefinition> refreshFromNacos() {
+        log.info("Force refreshing services from Nacos");
+        loadServicesFromNacos();
+        return getAllServices();
     }
 
     /**
