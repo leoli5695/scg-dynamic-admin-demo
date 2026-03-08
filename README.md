@@ -171,8 +171,28 @@ java -jar target/gateway-admin-1.0.0.jar
 |-----------|-----|-------------|
 | **Gateway Admin Console** | http://localhost:8081 | Web management UI |
 | **Gateway API** | http://localhost:80 | Gateway entry point |
-| **Demo Service** | http://localhost:8081 | Sample backend service |
+| **Demo Service** | http://localhost:9000 | Sample backend service |
 | **Nacos Console** | http://localhost:8848/nacos | Configuration management |
+
+### Step 5: Demo Load Balancing
+
+To demonstrate load balancing, start multiple Demo Service instances:
+
+```bash
+# Instance 1 (port 9000)
+cd demo-service
+java -jar target/demo-service-1.0.0.jar
+
+# Instance 2 (port 9001) - in another terminal
+java -jar target/demo-service-1.0.0.jar -Dserver.port=9001
+```
+
+Then configure the service in Gateway Admin Console:
+- Service Name: `demo-service`
+- Instance 1: `127.0.0.1:9000`
+- Instance 2: `127.0.0.1:9001`
+
+Access through gateway: `http://localhost:80/api/demo/hello` (verify different responses from each instance)
 
 ---
 
