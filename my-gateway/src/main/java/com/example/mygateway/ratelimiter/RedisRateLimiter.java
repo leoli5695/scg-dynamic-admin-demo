@@ -5,6 +5,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
 
 import jakarta.annotation.PostConstruct;
 import java.util.Collections;
@@ -19,6 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @Slf4j
 @Component
+@EnableScheduling
 public class RedisRateLimiter {
     
     @Autowired(required = false)
@@ -27,7 +30,7 @@ public class RedisRateLimiter {
     /**
      * Redis 是否可用
      */
-    private final AtomicBoolean redisAvailable = new AtomicBoolean(true);
+    private final AtomicBoolean redisAvailable = new AtomicBoolean(false);
     
     /**
      * 降级超时时间 (ms)
@@ -38,6 +41,11 @@ public class RedisRateLimiter {
      * 上次降级时间
      */
     private volatile long lastFallbackTime = 0;
+    
+    /**
+     * Redis 健康检查间隔 (ms)
+     */
+    private long healthCheckIntervalMs = 10000; // 10秒
     
     /**
      * Lua script for sliding window rate limiting
@@ -72,12 +80,20 @@ public class RedisRateLimiter {
         rateLimitScript.setScriptText(RATE_LIMIT_SCRIPT);
         rateLimitScript.setResultType(Long.class);
         
-        // Check Redis connection at startup
+        // 启动时检查一次
         checkRedisAvailability();
     }
     
     /**
-     * Check if Redis is available
+     * 定时健康检查：每10秒检测一次 Redis 连接
+     */
+    @Scheduled(fixedDelayString = "${spring.redis.ratelimiter.health-check-interval:10000}")
+    public void scheduledHealthCheck() {
+        checkRedisAvailability();
+    }
+    
+    /**
+     * Check if Redis is available - 同步 ping
      */
     public void checkRedisAvailability() {
         if (redisTemplate == null) {
@@ -87,42 +103,74 @@ public class RedisRateLimiter {
         }
         
         try {
-            redisTemplate.getConnectionFactory().getConnection().ping();
-            redisAvailable.set(true);
-            log.info("Redis connection OK, global rate limiting enabled");
+            String result = redisTemplate.getConnectionFactory().getConnection().ping();
+            if ("PONG".equalsIgnoreCase(result)) {
+                if (!redisAvailable.get()) {
+                    log.info("Redis connection recovered, global rate limiting enabled");
+                }
+                redisAvailable.set(true);
+            } else {
+                redisAvailable.set(false);
+                log.warn("Redis ping unexpected response: {}", result);
+            }
         } catch (Exception e) {
+            if (redisAvailable.get()) {
+                log.warn("Redis connection lost: {}, will fallback to Sentinel", e.getMessage());
+            }
             redisAvailable.set(false);
-            log.warn("Redis connection failed: {}, will fallback to Sentinel", e.getMessage());
+            // 触发降级
+            lastFallbackTime = System.currentTimeMillis();
         }
     }
     
     /**
+     * Check if Redis is currently available
+     */
+    public boolean isRedisAvailable() {
+        if (redisTemplate == null) {
+            return false;
+        }
+        
+        // 检查降级超时
+        if (System.currentTimeMillis() - lastFallbackTime < fallbackTimeoutMs) {
+            return false;
+        }
+        
+        return redisAvailable.get();
+    }
+    
+    /**
+     * Mark that we need to fallback to Sentinel
+     */
+    public void triggerFallback() {
+        lastFallbackTime = System.currentTimeMillis();
+        redisAvailable.set(false);
+    }
+    
+    /**
+     * Manually recover Redis (for external use)
+     */
+    public void recoverRedis() {
+        checkRedisAvailability();
+        lastFallbackTime = 0;
+    }
+    
+    /**
      * Try to acquire a token from Redis rate limiter
-     * 
-     * @param key Rate limit key
-     * @param qps Queries per second limit
-     * @param burstCapacity Max burst capacity
-     * @return true if allowed, false if rate limited
      */
     public RateLimitResult tryAcquire(String key, int qps, int burstCapacity) {
-        // Check if Redis is available
         if (!isRedisAvailable()) {
             return RateLimitResult.fallback("Redis unavailable");
         }
         
-        // Check if we're in fallback period
-        if (System.currentTimeMillis() - lastFallbackTime < fallbackTimeoutMs) {
-            return RateLimitResult.fallback("In fallback period");
-        }
-        
         if (redisTemplate == null) {
-            markFallback();
+            triggerFallback();
             return RateLimitResult.fallback("RedisTemplate is null");
         }
         
         try {
             long now = System.currentTimeMillis();
-            long windowSize = 1000; // 1 second window
+            long windowSize = 1000;
             
             List<String> keys = Collections.singletonList(key);
             Long result = redisTemplate.execute(
@@ -139,54 +187,12 @@ public class RedisRateLimiter {
                 return RateLimitResult.reject("Rate limit exceeded");
             }
         } catch (Exception e) {
-            log.error("Redis rate limit error: {}", e.getMessage(), e);
-            markFallback();
+            log.error("Redis rate limit error: {}", e.getMessage());
+            triggerFallback();
             return RateLimitResult.fallback("Redis error: " + e.getMessage());
         }
     }
     
-    /**
-     * Check if Redis is currently available
-     */
-    public boolean isRedisAvailable() {
-        if (redisTemplate == null) {
-            return false;
-        }
-        
-        // Check if we're in fallback timeout period
-        if (System.currentTimeMillis() - lastFallbackTime < fallbackTimeoutMs) {
-            return false;
-        }
-        
-        return redisAvailable.get();
-    }
-    
-    /**
-     * Mark that we need to fallback to Sentinel
-     */
-    private void markFallback() {
-        lastFallbackTime = System.currentTimeMillis();
-        redisAvailable.set(false);
-    }
-    
-    /**
-     * Manually trigger fallback (for external use)
-     */
-    public void triggerFallback() {
-        markFallback();
-    }
-    
-    /**
-     * Manually recover Redis (for external use)
-     */
-    public void recoverRedis() {
-        checkRedisAvailability();
-        lastFallbackTime = 0;
-    }
-    
-    /**
-     * Set fallback timeout
-     */
     public void setFallbackTimeoutMs(long timeoutMs) {
         this.fallbackTimeoutMs = timeoutMs;
     }
@@ -217,16 +223,8 @@ public class RedisRateLimiter {
             return new RateLimitResult(false, true, message);
         }
         
-        public boolean isAllowed() {
-            return allowed;
-        }
-        
-        public boolean isFallback() {
-            return fallback;
-        }
-        
-        public String getMessage() {
-            return message;
-        }
+        public boolean isAllowed() { return allowed; }
+        public boolean isFallback() { return fallback; }
+        public String getMessage() { return message; }
     }
 }
