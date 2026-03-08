@@ -4,6 +4,7 @@ import com.alibaba.cloud.nacos.NacosConfigManager;
 import com.example.mygateway.model.RateLimiterConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,10 +18,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * Rate Limiter Configuration Manager
  * Load rate limiter config from Nacos
  */
+@Slf4j
 @Component
 public class RateLimiterConfigManager {
-    
-    private static final Logger log = LoggerFactory.getLogger(RateLimiterConfigManager.class);
     
     @Autowired(required = false)
     private NacosConfigManager nacosConfigManager;
