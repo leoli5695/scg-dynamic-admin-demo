@@ -180,6 +180,8 @@ java -jar target/gateway-admin-1.0.0.jar
 
 This is a **learning/demo project**. Production deployment requires additional features:
 
+**Data Persistence:** Currently all data (routes, services, plugins) is stored in Nacos config center. For production, use a proper database (MySQL/PostgreSQL) for persistent storage to avoid data loss.
+
 **Security:** Authentication/Authorization, SSL/TLS  
 **Reliability:** Circuit breakers, retry policies, timeouts  
 **Monitoring:** Prometheus metrics, distributed tracing  
