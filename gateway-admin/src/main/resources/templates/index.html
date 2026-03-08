@@ -300,6 +300,14 @@
             align-items: center;
             gap: 6px;
         }
+        .plugin-section-subtitle {
+            font-size: 13px;
+            font-weight: 600;
+            color: #8899aa;
+            margin: 16px 0 10px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #eee;
+        }
         .divider { border: none; border-top: 1.5px dashed #e8e8e8; margin: 24px 0; }
     </style>
 </head>
@@ -460,31 +468,76 @@
                             <option value="">-- Select a created route --</option>
                         </select>
                     </div>
+                    
+                    <!-- Redis Global Rate Limiting -->
+                    <div class="plugin-section-subtitle">Redis Global Rate Limiting</div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Request Rate (req/s) <span class="required">*</span></label>
-                            <input type="number" id="rl-rate" value="100" min="1" required>
+                            <label>Redis QPS Limit <span class="required">*</span></label>
+                            <input type="number" id="rl-redis-qps" value="100" min="0" required>
+                            <small>Set to 0 to disable Redis rate limiting</small>
                         </div>
                         <div class="form-group">
-                            <label>Burst Capacity <span class="required">*</span></label>
-                            <input type="number" id="rl-burst" value="200" min="1" required>
+                            <label>Burst Capacity</label>
+                            <input type="number" id="rl-redis-burst" value="200" min="1">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Rate Limit Dimension</label>
-                            <select id="rl-key" onchange="onKeyResolverChange()">
+                            <label>Key Type</label>
+                            <select id="rl-key-type">
+                                <option value="route">By Route Only</option>
                                 <option value="ip">By IP Address</option>
-                                <option value="user">By User</option>
-                                <option value="header">By Request Header</option>
-                                <option value="global">Global Rate Limit</option>
+                                <option value="user">By User ID</option>
+                                <option value="combined" selected>Combined (Route + IP + User)</option>
                             </select>
                         </div>
-                        <div class="form-group" id="rl-header-group" style="display:none">
-                            <label>Header Name</label>
-                            <input type="text" id="rl-header" placeholder="e.g. X-User-ID">
+                        <div class="form-group">
+                            <label>Key Prefix</label>
+                            <input type="text" id="rl-key-prefix" value="rate_limit:" placeholder="rate_limit:">
                         </div>
                     </div>
+                    
+                    <!-- Sentinel Local Rate Limiting -->
+                    <div class="plugin-section-subtitle">Sentinel Fallback (when Redis unavailable)</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Sentinel QPS Limit</label>
+                            <input type="number" id="rl-sentinel-qps" value="50" min="0">
+                            <small>Set to 0 to disable Sentinel fallback</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Threshold Type</label>
+                            <select id="rl-sentinel-threshold-type">
+                                <option value="QPS" selected>QPS</option>
+                                <option value="threads">Threads</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Fallback Settings -->
+                    <div class="plugin-section-subtitle">Fallback Settings</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="rl-fallback-enabled" checked>
+                                Enable Sentinel Fallback
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>Fallback Timeout (ms)</label>
+                            <input type="number" id="rl-fallback-timeout" value="5000" min="1000" step="1000">
+                            <small>Cooldown period after Redis failure</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="rl-enabled" checked>
+                            Enable Rate Limiting
+                        </label>
+                    </div>
+                    
                     <button type="submit" class="btn-primary">✓ Save Rate Limiter Config</button>
                 </form>
             </div>
@@ -884,18 +937,45 @@ async function submitRateLimiter(e) {
     e.preventDefault();
     const routeId = document.getElementById('rl-route').value;
     if (!routeId) { toast('Please select a route', 'error'); return; }
+    
     const data = {
-        routeId,
-        rate: parseInt(document.getElementById('rl-rate').value),
-        burst: parseInt(document.getElementById('rl-burst').value),
-        keyResolver: document.getElementById('rl-key').value,
-        headerName: document.getElementById('rl-header').value || null
+        routeId: routeId,
+        enabled: document.getElementById('rl-enabled').checked,
+        redisQps: parseInt(document.getElementById('rl-redis-qps').value) || 0,
+        redisBurstCapacity: parseInt(document.getElementById('rl-redis-burst').value) || 200,
+        keyPrefix: document.getElementById('rl-key-prefix').value || 'rate_limit:',
+        keyType: document.getElementById('rl-key-type').value,
+        sentinelQps: parseInt(document.getElementById('rl-sentinel-qps').value) || 0,
+        sentinelThresholdType: document.getElementById('rl-sentinel-threshold-type').value,
+        fallbackToSentinel: document.getElementById('rl-fallback-enabled').checked,
+        redisFallbackTimeoutMs: parseInt(document.getElementById('rl-fallback-timeout').value) || 5000
     };
+    
     try {
-        const r = await fetch('/api/plugins/rate-limiters', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+        const r = await fetch('/api/rate-limiter', { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify(data) 
+        });
         const res = await r.json();
-        if (r.ok) { toast('Rate limiter config saved!'); loadPlugins(); }
+        if (r.ok) { 
+            toast('Rate limiter config saved!'); 
+            loadPlugins(); 
+        }
         else toast(res.message || 'Failed to save', 'error');
+    } catch(err) { toast('Network error', 'error'); }
+}
+
+async function deleteRateLimiter(routeId) {
+    if (!confirm('Delete rate limiter config for route: ' + routeId + '?')) return;
+    try {
+        const r = await fetch('/api/rate-limiter/' + routeId, { method: 'DELETE' });
+        const res = await r.json();
+        if (r.ok) { 
+            toast('Rate limiter config deleted!'); 
+            loadPlugins(); 
+        }
+        else toast(res.message || 'Failed to delete', 'error');
     } catch(err) { toast('Network error', 'error'); }
 }
 
@@ -968,7 +1048,7 @@ async function submitCustomHeader(e) {
 async function loadPlugins() {
     try {
         const [rlRes, chRes] = await Promise.all([
-            fetch('/api/plugins/rate-limiters').then(r => r.json()),
+            fetch('/api/rate-limiter').then(r => r.json()),
             fetch('/api/plugins/custom-headers').then(r => r.json())
         ]);
         renderPlugins(rlRes.data || [], chRes.data || []);
@@ -980,19 +1060,27 @@ function renderPlugins(rls, chs) {
     let html = '';
     
     // Rate limiter plugin
-    if (rls.length) {
+    if (rls && rls.length) {
         html += '<div style="font-weight:700;color:#667eea;margin-bottom:10px;font-size:14px;">🚦 Rate Limiter Plugin</div>';
         html += rls.map(p => `
             <div class="item-card">
                 <div class="item-card-header">
                     <div>
                         <span class="item-name">${p.routeId}</span>
-                        <span class="item-tag tag-orange">${p.keyResolver}</span>
+                        <span class="item-tag tag-${p.enabled ? 'green' : 'gray'}">${p.enabled ? 'Enabled' : 'Disabled'}</span>
+                        <span class="item-tag tag-orange">${p.keyType}</span>
                     </div>
+                    <button class="btn-delete" onclick="deleteRateLimiter('${p.routeId}')">🗑</button>
                 </div>
-                <div class="item-meta">Rate: <strong>${p.rate}</strong> req/s &nbsp;|&nbsp; Burst: <strong>${p.burst}</strong>${p.headerName ? ' &nbsp;|&nbsp; Header: ' + p.headerName : ''}</div>
+                <div class="item-meta">
+                    Redis QPS: <strong>${p.redisQps}</strong> 
+                    | Burst: <strong>${p.redisBurstCapacity}</strong>
+                    ${p.sentinelQps > 0 ? ' | Sentinel QPS: <strong>' + p.sentinelQps + '</strong>' : ''}
+                </div>
             </div>
         `).join('');
+    } else {
+        html += '<div style="color:#999;font-size:13px;padding:10px;">No rate limiter config. Create one using the form above.</div>';
     }
     
     // Custom header plugin
