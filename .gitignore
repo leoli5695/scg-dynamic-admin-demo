@@ -48,6 +48,15 @@ bin/
 # VS Code
 .vscode/
 
+# IDEA (at project root or module level)
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Qoder
+.qoder/
+
 # Logs
 *.log
 logs/
