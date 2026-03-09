@@ -10,7 +10,7 @@ import java.util.Properties;
 
 /**
  * Nacos NamingService Wrapper Class
- * 
+ *
  * @author leoli
  * @version 1.0
  */
@@ -21,8 +21,8 @@ public class NacosNamingServiceWrapper {
 
     public NacosNamingServiceWrapper(Properties properties) throws Exception {
         this.namingService = NacosFactory.createNamingService(properties);
-        log.info("NacosNamingServiceWrapper initialized with server: {}", 
-            properties.getProperty("serverAddr"));
+        log.info("NacosNamingServiceWrapper initialized with server: {}",
+                properties.getProperty("serverAddr"));
     }
 
     /**

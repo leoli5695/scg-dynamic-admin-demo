@@ -187,18 +187,22 @@ scg-dynamic-admin-demo/
 │   ├── model/               # Data models
 │   └── service/             # Business logic
 ├── my-gateway/              # Core gateway (port 80)
-│   ├── filter/
-│   │   ├── TraceIdGlobalFilter.java      # Distributed tracing
-│   │   ├── IPFilterGlobalFilter.java     # IP access control
+│   ├── filter/              # Global filters
+│   │   ├── TraceIdGlobalFilter.java     # Distributed tracing
+│   │   ├── IPFilterGlobalFilter.java    # IP access control
 │   │   ├── AuthenticationGlobalFilter.java # Auth framework
 │   │   ├── CircuitBreakerGlobalFilter.java # Circuit breaker
-│   │   ├── TimeoutGlobalFilter.java      # Timeout control
-│   │   └── RateLimiterGlobalFilter.java  # Rate limiting
-│   ├── auth/
-│   │   ├── AuthProcessor.java            # Strategy interface
-│   │   ├── JwtAuthProcessor.java         # JWT implementation
-│   │   ├── ApiKeyAuthProcessor.java      # API Key implementation
-│   │   └── OAuth2AuthProcessor.java      # OAuth2 implementation
+│   │   ├── TimeoutGlobalFilter.java     # Timeout control
+│   │   └── RateLimiterGlobalFilter.java # Rate limiting
+│   ├── plugin/              # Plugin configuration managers
+│   │   ├── PluginConfigManager.java     # Unified plugin config store
+│   │   ├── TimeoutConfigManager.java    # Timeout config loader
+│   │   └── CircuitBreakerConfigManager.java # Circuit breaker config
+│   ├── auth/                # Authentication framework
+│   │   ├── AuthProcessor.java           # Strategy interface
+│   │   ├── JwtAuthProcessor.java        # JWT implementation
+│   │   ├── ApiKeyAuthProcessor.java     # API Key implementation
+│   │   └── OAuth2AuthProcessor.java     # OAuth2 implementation
 │   └── route/
 │       └── NacosRouteDefinitionLocator.java # Dynamic route loader
 ├── demo-service/            # Sample backend (port 9000/9001)

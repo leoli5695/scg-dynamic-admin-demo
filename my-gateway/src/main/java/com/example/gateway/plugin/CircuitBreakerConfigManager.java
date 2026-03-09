@@ -1,4 +1,4 @@
-package com.example.gateway.filter;
+package com.example.gateway.plugin;
 
 import com.example.gateway.model.CircuitBreakerConfig;
 import lombok.extern.slf4j.Slf4j;
