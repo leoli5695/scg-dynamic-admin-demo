@@ -34,7 +34,7 @@ public class PluginConfigManager {
      * Update plugin configuration (called by Nacos listener)
      */
     public void updateConfig(String configJson) {
-        if (configJson == null || configJson.trim().isEmpty()) {
+        if (configJson == null || configJson.isBlank()) {
             // Config was deleted from Nacos (all plugins removed) - clear in-memory config
             currentConfig.set(new PluginConfig());
             log.info("Plugin config deleted from Nacos, all plugin configs cleared");

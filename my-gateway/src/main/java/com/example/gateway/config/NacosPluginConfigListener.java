@@ -57,7 +57,7 @@ public class NacosPluginConfigListener {
                     
                     if (configInfo == null || configInfo.trim().isEmpty()) {
                         log.info("Plugin config deleted or empty, clearing plugin config");
-                        pluginConfigManager.updateConfig(null);
+                        pluginConfigManager.updateConfig("");
                     } else {
                         log.info("Plugin config received, updating...");
                         log.debug("Plugin config content: {}", configInfo);
