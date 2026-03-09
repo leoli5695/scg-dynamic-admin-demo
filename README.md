@@ -186,6 +186,12 @@ scg-dynamic-admin-demo/
 
 ---
 
+## 📄 License
+
+This project is licensed under the **MIT License** — free to use, modify, and distribute for both personal and commercial purposes. See [LICENSE](LICENSE) for details.
+
+---
+
 <div align="center">
 
 **Built with ❤️ by leoli**
