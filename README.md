@@ -243,8 +243,8 @@ scg-dynamic-admin-demo/
 **Need a customized API Gateway or Microservices Architecture?**
 
 I'm available on Upwork for freelance projects:
-- 🔗 **Profile:** [Your Upwork Profile Link]
-- 📧 **Contact:** [Your Email]
+- 🔗 **Profile:** [https://www.upwork.com/freelancers/~017be8c63f36907379](https://www.upwork.com/freelancers/~017be8c63f36907379)
+- 📧 **Contact:** lizhao5695@gmail.com
 
 **Specialties:**
 - ✅ Spring Cloud Gateway customization
