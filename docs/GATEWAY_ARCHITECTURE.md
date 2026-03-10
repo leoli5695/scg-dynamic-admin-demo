@@ -13,7 +13,9 @@ This project is a **secondary development on top of Spring Cloud Gateway**, exte
 | **Gateway Admin Console** | 8080 | Management UI + REST API -- CRUD for routes/services/plugins, JWT auth, audit logs |
 | **API Gateway** | 80 | Runtime traffic proxy -- built directly on SCG, dynamically reloads config from Nacos |
 
-Configuration changes made in the Admin Console are persisted to H2, published to Nacos, and pushed to the Gateway in **under 100ms** -- with no restart required.
+Configuration changes made in the Admin Console are persisted to H2, published to **Nacos or Consul**, and pushed to the Gateway in **under 100ms** -- with no restart required.
+
+> **Config Center:** The gateway supports two config center backends — **Nacos** (default) and **HashiCorp Consul** — switchable via `gateway.center.type=nacos|consul`.
 
 ---
 
@@ -82,7 +84,7 @@ Configuration changes made in the Admin Console are persisted to H2, published t
                     │ REST API Calls
                     ↓
 ┌─────────────────────────────────────────────────────────┐
-│              Config Center (Nacos)                      │
+│         Config Center (Nacos  OR  Consul)               │
 │          gateway-routes.json                            │
 │          gateway-services.json                          │
 │          gateway-plugins.json                           │
@@ -94,6 +96,7 @@ Configuration changes made in the Admin Console are persisted to H2, published t
 │              API Gateway (Port 80)                      │
 │    DynamicRouteDefinitionLocator                        │
 │    RouteRefresher / StrategyRefresher                   │
+│    (Nacos Listener  OR  Consul Watch)                   │
 │    RefreshRoutesEvent -> SCG Auto-Reload                │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -303,13 +306,14 @@ public class NacosPublisher {
 Admin Console (H2 Database)
     |
     v
-NacosPublisher.publishRoutes()
+NacosPublisher / ConsulPublisher  (selected by gateway.center.type)
     |
     v
-Nacos Config Center (gateway-routes.json)
+Config Center — Nacos (gateway-routes.json)
+              OR Consul (KV prefix: config/gateway-routes.json)
     |
     v
-Gateway RouteRefresher (Nacos Listener)
+Gateway RouteRefresher (Nacos Listener / Consul Watch)
     |
     v
 RouteManager.loadConfig(json)
