@@ -1,4 +1,4 @@
-package com.example.gateway.filter;
+package com.example.gateway.nacos;
 
 import com.alibaba.nacos.api.NacosFactory;
 import com.alibaba.nacos.api.naming.NamingService;
@@ -46,3 +46,4 @@ public class NacosNamingServiceWrapper {
         namingService.shutDown();
     }
 }
+

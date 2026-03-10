@@ -1,4 +1,4 @@
-package com.example.gateway.filter;
+package com.example.gateway.nacos;
 
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import org.springframework.cloud.client.ServiceInstance;
@@ -64,3 +64,4 @@ public class NacosServiceInstance implements ServiceInstance {
         return instance.getInstanceId();
     }
 }
+

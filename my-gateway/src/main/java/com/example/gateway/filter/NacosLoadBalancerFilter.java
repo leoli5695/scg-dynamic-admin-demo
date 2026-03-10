@@ -1,6 +1,8 @@
 package com.example.gateway.filter;
 
 import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.example.gateway.nacos.NacosNamingServiceWrapper;
+import com.example.gateway.nacos.NacosServiceInstance;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.loadbalancer.*;
