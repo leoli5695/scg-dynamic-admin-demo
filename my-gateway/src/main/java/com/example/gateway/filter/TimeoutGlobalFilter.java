@@ -1,6 +1,7 @@
 package com.example.gateway.filter;
 
-import com.example.gateway.manager.TimeoutConfigManager;
+import com.example.gateway.enums.StrategyType;
+import com.example.gateway.manager.StrategyManager;
 import com.example.gateway.model.TimeoutConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,12 +34,12 @@ public class TimeoutGlobalFilter implements GlobalFilter, Ordered {
     private static final Logger logger = LoggerFactory.getLogger(TimeoutGlobalFilter.class);
 
     @Autowired
-    private TimeoutConfigManager configManager;
+    private StrategyManager strategyManager;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String routeId = getRouteId(exchange);
-        TimeoutConfig config = configManager.getTimeoutConfig(routeId);
+        TimeoutConfig config = strategyManager.getConfig(StrategyType.TIMEOUT, routeId);
 
         if (config == null || !config.isEnabled()) {
             return chain.filter(exchange);

@@ -1,6 +1,7 @@
 package com.example.gateway.filter;
 
-import com.example.gateway.manager.GatewayConfigManager;
+import com.example.gateway.enums.StrategyType;
+import com.example.gateway.manager.StrategyManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -19,15 +20,15 @@ import java.util.Map;
  * <p>
  * Supports blacklist and whitelist modes with CIDR notation.
  * </p>
- * 
+ *
  * @author leoli
  */
 @Slf4j
 @Component
 public class IPFilterGlobalFilter implements GlobalFilter, Ordered {
 
-    @Autowired(required = false)
-    private GatewayConfigManager GatewayConfigManager;
+    @Autowired
+    private StrategyManager strategyManager;
 
     /**
      * Check if IP is in the list (supports CIDR notation)
@@ -75,11 +76,11 @@ public class IPFilterGlobalFilter implements GlobalFilter, Ordered {
     private long ipToLong(String ipAddress) {
         String[] octets = ipAddress.split("\\.");
         long result = 0;
-        
+
         for (int i = 0; i < 4; i++) {
             result = (result << 8) + Integer.parseInt(octets[i]);
         }
-        
+
         return result;
     }
 
@@ -92,7 +93,7 @@ public class IPFilterGlobalFilter implements GlobalFilter, Ordered {
         if (forwarded != null && !forwarded.isEmpty()) {
             return forwarded.split(",")[0].trim();
         }
-        
+
         // Fallback to remote address
         var addr = exchange.getRequest().getRemoteAddress();
         return addr != null ? addr.getAddress().getHostAddress() : "unknown";
@@ -102,8 +103,8 @@ public class IPFilterGlobalFilter implements GlobalFilter, Ordered {
      * Get route ID from exchange
      */
     private String getRouteId(ServerWebExchange exchange) {
-        org.springframework.cloud.gateway.route.Route route = 
-            (org.springframework.cloud.gateway.route.Route) exchange.getAttribute("org.springframework.cloud.gateway.support.ServerWebExchangeUtils.gatewayRoute");
+        org.springframework.cloud.gateway.route.Route route =
+                (org.springframework.cloud.gateway.route.Route) exchange.getAttribute("org.springframework.cloud.gateway.support.ServerWebExchangeUtils.gatewayRoute");
         return route != null ? route.getId() : "unknown";
     }
 
@@ -122,39 +123,37 @@ public class IPFilterGlobalFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String routeId = getRouteId(exchange);
         String clientIp = getClientIp(exchange);
-        
+
         // Get IP filter config for this route
-        if (GatewayConfigManager != null) {
-            Map<String, Object> ipFilterConfig = GatewayConfigManager.getIPFilterForRoute(routeId);
-            
-            if (ipFilterConfig != null && !ipFilterConfig.isEmpty()) {
-                String mode = (String) ipFilterConfig.get("mode");
-                @SuppressWarnings("unchecked")
-                List<String> ipList = (List<String>) ipFilterConfig.get("ipList");
-                Boolean enabled = (Boolean) ipFilterConfig.get("enabled");
-                
-                if (Boolean.TRUE.equals(enabled) && ipList != null && !ipList.isEmpty()) {
-                    boolean ipInRange = isIPInRange(clientIp, ipList);
-                    
-                    if ("blacklist".equals(mode)) {
-                        // Blacklist mode: reject if IP is in the list
-                        if (ipInRange) {
-                            log.warn("IP {} blocked by blacklist for route {}", clientIp, routeId);
-                            exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
-                            return writeForbiddenResponse(exchange, "IP address blocked");
-                        }
-                    } else if ("whitelist".equals(mode)) {
-                        // Whitelist mode: reject if IP is NOT in the list
-                        if (!ipInRange) {
-                            log.warn("IP {} not in whitelist for route {}", clientIp, routeId);
-                            exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
-                            return writeForbiddenResponse(exchange, "IP address not allowed");
-                        }
+        Map<String, Object> ipFilterConfig = strategyManager.getConfig(StrategyType.IP_FILTER, routeId);
+
+        if (ipFilterConfig != null && !ipFilterConfig.isEmpty()) {
+            String mode = (String) ipFilterConfig.get("mode");
+            @SuppressWarnings("unchecked")
+            List<String> ipList = (List<String>) ipFilterConfig.get("ipList");
+            Boolean enabled = (Boolean) ipFilterConfig.get("enabled");
+
+            if (Boolean.TRUE.equals(enabled) && ipList != null && !ipList.isEmpty()) {
+                boolean ipInRange = isIPInRange(clientIp, ipList);
+
+                if ("blacklist".equals(mode)) {
+                    // Blacklist mode: reject if IP is in the list
+                    if (ipInRange) {
+                        log.warn("IP {} blocked by blacklist for route {}", clientIp, routeId);
+                        exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                        return writeForbiddenResponse(exchange, "IP address blocked");
+                    }
+                } else if ("whitelist".equals(mode)) {
+                    // Whitelist mode: reject if IP is NOT in the list
+                    if (!ipInRange) {
+                        log.warn("IP {} not in whitelist for route {}", clientIp, routeId);
+                        exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                        return writeForbiddenResponse(exchange, "IP address not allowed");
                     }
                 }
             }
         }
-        
+
         log.debug("Request from IP: {} for route: {}", clientIp, routeId);
         return chain.filter(exchange);
     }

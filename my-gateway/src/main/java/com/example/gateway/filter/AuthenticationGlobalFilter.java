@@ -1,7 +1,9 @@
 package com.example.gateway.filter;
 
-import com.example.gateway.auth.AuthConfig;
-import com.example.gateway.auth.AuthManager;
+import com.example.gateway.auth.AuthProcessManager;
+import com.example.gateway.enums.StrategyType;
+import com.example.gateway.manager.StrategyManager;
+import com.example.gateway.model.AuthConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -27,60 +29,36 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.G
 public class AuthenticationGlobalFilter implements GlobalFilter, Ordered {
 
     @Autowired
-    private AuthManager authManager;
-
-    // TODO: Integrate with GatewayConfigManager to load actual auth config
-    // For demonstration, we'll use a simple in-memory map
-    // In production, this should be loaded from Nacos/Database configuration
+    private StrategyManager strategyManager;
+    @Autowired
+    private AuthProcessManager AuthProcessManager;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String routeId = getRouteId(exchange);
-        
-        // Load auth config for this route
-        AuthConfig authConfig = loadAuthConfig(routeId);
-        
-        if (authConfig == null || !authConfig.isEnabled()) {
+
+        // Load auth config for this route from StrategyManager
+        AuthConfig authConfig = strategyManager.getConfig(StrategyType.AUTH, routeId);
+
+        if (Objects.isNull(authConfig) || !authConfig.isEnabled()) {
             log.debug("Auth not enabled for route: {}", routeId);
             return chain.filter(exchange);
         }
-        
-        log.debug("Processing authentication for route: {} with type: {}", 
+
+        log.debug("Processing authentication for route: {} with type: {}",
                 routeId, authConfig.getAuthType());
-        
-        // Delegate to AuthManager which will select the appropriate processor
-        return authManager.authenticate(exchange, authConfig)
+
+        // Delegate to AuthProcessManager which will select the appropriate processor
+        return AuthProcessManager.authenticate(exchange, authConfig)
                 .then(chain.filter(exchange));
     }
 
     /**
      * Load authentication configuration for a route.
-     * TODO: Replace with actual implementation using GatewayConfigManager.
-     * 
-     * This is a placeholder implementation. In production, you should:
-     * 1. Add AuthConfig to gateway-admin's PluginConfig
-     * 2. Create AuthPluginService in gateway-admin to manage auth configs
-     * 3. Publish configs to Nacos
-     * 4. Use ConfigChangeListener in my-gateway to receive updates
-     * 5. Store configs in AuthConfigManager (similar to CircuitBreakerConfigManager)
+     * Now uses StrategyManager to load from Nacos configuration.
      */
     private AuthConfig loadAuthConfig(String routeId) {
-        // Placeholder - returns null by default (no auth required)
-        // To enable auth for a route, manually create config here or implement the full solution
-        
-        // Example: Enable JWT auth for "secure-route"
-        /*
-        if ("secure-route".equals(routeId)) {
-            AuthConfig config = new AuthConfig();
-            config.setRouteId(routeId);
-            config.setAuthType("JWT");
-            config.setEnabled(true);
-            config.setSecretKey("your-secret-key-here");
-            return config;
-        }
-        */
-        
-        return null;
+        return strategyManager.getConfig(StrategyType.AUTH, routeId);
     }
 
     /**

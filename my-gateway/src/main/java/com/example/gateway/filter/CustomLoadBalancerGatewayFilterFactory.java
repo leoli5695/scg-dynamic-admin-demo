@@ -18,6 +18,7 @@ import reactor.core.publisher.Mono;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR;
@@ -68,14 +69,14 @@ public class CustomLoadBalancerGatewayFilterFactory extends AbstractGatewayFilte
             try {
                 // Process static:// protocol
                 if (originalUri.startsWith("static://")) {
-                    log.info("棣冩敵 Processing static:// protocol: {}", originalUri);
+                    log.info("Processing static:// protocol: {}", originalUri);
                     URI serviceUri = resolveServiceUri(URI.create(originalUri));
 
-                    if (serviceUri == null) {
+                    if (Objects.isNull(serviceUri)) {
                         return Mono.error(new NotFoundException("Unable to find instance for service"));
                     }
 
-                    log.info("閴?Resolved static:// -> {}", serviceUri);
+                    log.info("Resolved static:// -> {}", serviceUri);
 
                     // Replace URI and continue
                     ServerHttpRequest request = exchange.getRequest().mutate()
@@ -101,7 +102,7 @@ public class CustomLoadBalancerGatewayFilterFactory extends AbstractGatewayFilte
                 return chain.filter(exchange.mutate().request(request).build());
 
             } catch (Exception e) {
-                log.error("閴?Error resolving service", e);
+                log.error("Error resolving service", e);
                 return Mono.error(e);
             }
         }

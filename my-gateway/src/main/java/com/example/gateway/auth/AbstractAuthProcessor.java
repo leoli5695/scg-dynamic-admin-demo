@@ -1,5 +1,6 @@
 package com.example.gateway.auth;
 
+import com.example.gateway.model.AuthConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -25,9 +26,7 @@ public abstract class AbstractAuthProcessor implements AuthProcessor {
         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
         exchange.getResponse().getHeaders().add(HttpHeaders.CONTENT_TYPE, "application/json");
         String body = "{\"error\":\"Unauthorized\",\"message\":\"" + message + "\"}";
-        return exchange.getResponse().writeWith(
-            Mono.just(exchange.getResponse().bufferFactory().wrap(body.getBytes()))
-        );
+        return exchange.getResponse().writeWith(Mono.just(exchange.getResponse().bufferFactory().wrap(body.getBytes())));
     }
 
     /**
@@ -39,7 +38,7 @@ public abstract class AbstractAuthProcessor implements AuthProcessor {
         exchange.getResponse().getHeaders().add(HttpHeaders.CONTENT_TYPE, "application/json");
         String body = "{\"error\":\"Forbidden\",\"message\":\"" + message + "\"}";
         return exchange.getResponse().writeWith(
-            Mono.just(exchange.getResponse().bufferFactory().wrap(body.getBytes()))
+                Mono.just(exchange.getResponse().bufferFactory().wrap(body.getBytes()))
         );
     }
 
@@ -48,11 +47,9 @@ public abstract class AbstractAuthProcessor implements AuthProcessor {
      */
     protected String extractBearerToken(ServerWebExchange exchange) {
         String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        
         if (authHeader != null && authHeader.startsWith(BEARER_PREFIX)) {
             return authHeader.substring(BEARER_PREFIX.length());
         }
-        
         return null;
     }
 
@@ -60,24 +57,20 @@ public abstract class AbstractAuthProcessor implements AuthProcessor {
      * Check if configuration is valid.
      */
     protected boolean isValidConfig(AuthConfig config) {
-        return config != null 
-            && config.getRouteId() != null 
-            && config.isEnabled();
+        return config != null && config.getRouteId() != null && config.isEnabled();
     }
 
     /**
      * Log authentication success.
      */
     protected void logSuccess(String routeId) {
-        log.debug("Authentication successful for route: {} using type: {}", 
-                routeId, getAuthType());
+        log.debug("Authentication successful for route: {} using type: {}", routeId, getAuthType());
     }
 
     /**
      * Log authentication failure.
      */
     protected void logFailure(String routeId, String reason) {
-        log.warn("Authentication failed for route: {} using type: {}. Reason: {}", 
-                routeId, getAuthType(), reason);
+        log.warn("Authentication failed for route: {} using type: {}. Reason: {}", routeId, getAuthType(), reason);
     }
 }

@@ -1,5 +1,6 @@
 package com.example.gateway.auth;
 
+import com.example.gateway.model.AuthConfig;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 

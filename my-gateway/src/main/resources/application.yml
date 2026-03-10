@@ -5,40 +5,60 @@ spring:
   application:
     name: my-gateway
   config:
-    import: optional:nacos:application.yml
+  import: optional:nacos:application.yml
   data:
     redis:
-      host: 127.0.0.1
-      port: 6379
-      password:
-      database: 0
-      timeout: 5000ms
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      timeout: ${REDIS_TIMEOUT:5000ms}
       lettuce:
         pool:
-          max-active: 8
-          max-idle: 8
-          min-idle: 0
+          max-active: ${REDIS_POOL_MAX_ACTIVE:8}
+          max-idle: ${REDIS_POOL_MAX_IDLE:8}
+          min-idle: ${REDIS_POOL_MIN_IDLE:0}
   cloud:
+    # Nacos Configuration
     nacos:
-      discovery:
-        server-addr: 127.0.0.1:8848
-        namespace: ""
       config:
-        server-addr: 127.0.0.1:8848
-        namespace: ""
-        file-extension: yaml
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:""}
+        file-extension: ${NACOS_FILE_EXTENSION:yaml}
         shared-configs:
-          - data-id: gateway-routes.json
-            refresh: true
-    gateway:
-      discovery:
-        locator:
-          enabled: true
+          - data-id: ${NACOS_SHARED_CONFIG_DATA_ID:gateway-routes.json}
+        refresh: ${NACOS_SHARED_CONFIG_REFRESH:true}
+    discovery:
+      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+      namespace: ${NACOS_NAMESPACE:""}
+    
+    # Consul Configuration (alternative to Nacos)
+  consul:
+    host: ${CONSUL_HOST:localhost}
+    port: ${CONSUL_PORT:8500}
+    config:
+      prefix: ${CONSUL_CONFIG_PREFIX:config}
+    discovery:
+      enabled: ${CONSUL_DISCOVERY_ENABLED:true}
+      health-check-path: ${CONSUL_HEALTH_CHECK_PATH:/actuator/health}
+      health-check-interval: ${CONSUL_HEALTH_CHECK_INTERVAL:10s}
+
+  gateway:
+    discovery:
+      locator:
+        enabled: ${GATEWAY_DISCOVERY_LOCATOR_ENABLED:true}
       httpclient:
         pool:
-          type: ELASTIC
+        type: ELASTIC
+
+# Gateway Center Configuration
+# Set type to 'nacos' (default) or 'consul' to switch between config centers
+gateway:
+  center:
+    type: ${GATEWAY_CENTER_TYPE:nacos}
 
 logging:
   level:
-    org.springframework.cloud.gateway: DEBUG
-    com.alibaba.nacos: INFO
+    org.springframework.cloud.gateway: ${LOG_LEVEL_GATEWAY:DEBUG}
+  com.alibaba.nacos: ${LOG_LEVEL_NACOS:INFO}
+  com.ecwid.consul: ${LOG_LEVEL_CONSUL:INFO}

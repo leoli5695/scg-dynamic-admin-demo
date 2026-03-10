@@ -1,10 +1,9 @@
 package com.example.gateway.filter;
 
-import com.example.gateway.manager.CircuitBreakerConfigManager;
-
+import com.example.gateway.enums.StrategyType;
+import com.example.gateway.manager.StrategyManager;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.reactor.circuitbreaker.operator.CircuitBreakerOperator;
 import lombok.extern.slf4j.Slf4j;
@@ -34,27 +33,26 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.G
 public class CircuitBreakerGlobalFilter implements GlobalFilter, Ordered {
 
     @Autowired
-    private CircuitBreakerConfigManager configManager;
+    private StrategyManager strategyManager;
 
     private final CircuitBreakerRegistry circuitBreakerRegistry = CircuitBreakerRegistry.ofDefaults();
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String routeId = getRouteId(exchange);
-        
+
         // Check if circuit breaker is enabled for this route
-        if (!configManager.isEnabled(routeId)) {
+        if (!strategyManager.isStrategyEnabled(StrategyType.CIRCUIT_BREAKER, routeId)) {
             return chain.filter(exchange);
         }
 
         // Get circuit breaker configuration
-        com.example.gateway.model.CircuitBreakerConfig config = configManager.getConfig(routeId);
+        com.example.gateway.model.CircuitBreakerConfig config = strategyManager.getConfig(StrategyType.CIRCUIT_BREAKER, routeId);
         if (config == null) {
             return chain.filter(exchange);
         }
 
-        log.debug("Applying circuit breaker for route {}: failureRateThreshold={}%", 
-                routeId, config.getFailureRateThreshold());
+        log.debug("Applying circuit breaker for route {}: failureRateThreshold={}%", routeId, config.getFailureRateThreshold());
 
         // Create or get circuit breaker from registry
         CircuitBreaker circuitBreaker = getOrCreateCircuitBreaker(routeId, config);
@@ -67,7 +65,8 @@ public class CircuitBreakerGlobalFilter implements GlobalFilter, Ordered {
                     log.warn("Circuit breaker is OPEN for route {}, rejecting request", routeId);
                     exchange.getResponse().setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
                     exchange.getResponse().getHeaders().add("Content-Type", "application/json");
-                    String body = "{\"error\":\"Service Unavailable\",\"message\":\"Circuit breaker is open, please try again later\",\"routeId\":\"" + routeId + "\"}";
+                    String body = "{\"error\":\"Service Unavailable\",\"message\":\"Circuit breaker is open," +
+                            " please try again later\",\"routeId\":\"" + routeId + "\"}";
                     return exchange.getResponse().writeWith(
                             Mono.just(exchange.getResponse().bufferFactory().wrap(body.getBytes()))
                     );
@@ -86,20 +85,20 @@ public class CircuitBreakerGlobalFilter implements GlobalFilter, Ordered {
     /**
      * Get or create a circuit breaker with the given configuration.
      */
-    private CircuitBreaker getOrCreateCircuitBreaker(String routeId, 
+    private CircuitBreaker getOrCreateCircuitBreaker(String routeId,
                                                      com.example.gateway.model.CircuitBreakerConfig config) {
-        return circuitBreakerRegistry.circuitBreaker(
-            routeId,
-            CircuitBreakerConfig.custom()
-                .failureRateThreshold(config.getFailureRateThreshold())
-                .slowCallDurationThreshold(Duration.ofMillis(config.getSlowCallDurationThreshold()))
-                .slowCallRateThreshold(config.getSlowCallRateThreshold())
-                .waitDurationInOpenState(Duration.ofMillis(config.getWaitDurationInOpenState()))
-                .slidingWindowSize(config.getSlidingWindowSize())
-                .minimumNumberOfCalls(config.getMinimumNumberOfCalls())
-                .automaticTransitionFromOpenToHalfOpenEnabled(config.isAutomaticTransitionFromOpenToHalfOpenEnabled())
-                .build()
-        );
+        io.github.resilience4j.circuitbreaker.CircuitBreakerConfig circuitBreakerConfig =
+                io.github.resilience4j.circuitbreaker.CircuitBreakerConfig.custom()
+                        .failureRateThreshold(config.getFailureRateThreshold())
+                        .slowCallDurationThreshold(Duration.ofMillis(config.getSlowCallDurationThreshold()))
+                        .slowCallRateThreshold(config.getSlowCallRateThreshold())
+                        .waitDurationInOpenState(Duration.ofMillis(config.getWaitDurationInOpenState()))
+                        .slidingWindowSize(config.getSlidingWindowSize())
+                        .minimumNumberOfCalls(config.getMinimumNumberOfCalls())
+                        .automaticTransitionFromOpenToHalfOpenEnabled(config.isAutomaticTransitionFromOpenToHalfOpenEnabled())
+                        .build();
+
+        return circuitBreakerRegistry.circuitBreaker(routeId, circuitBreakerConfig);
     }
 
     /**

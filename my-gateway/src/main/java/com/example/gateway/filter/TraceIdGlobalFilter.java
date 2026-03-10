@@ -6,7 +6,6 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.route.Route;
 import org.springframework.core.Ordered;
-import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -32,25 +31,25 @@ public class TraceIdGlobalFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         // Get or generate trace ID
         String traceId = getOrGenerateTraceId(exchange);
-        
+
         // Add trace ID to MDC for logging
         MDC.put("traceId", traceId);
-        
+
         // Add trace ID to request headers (for downstream services)
         ServerWebExchange mutatedExchange = exchange.mutate()
                 .request(exchange.getRequest().mutate()
                         .header(TRACE_ID_HEADER, traceId)
                         .build())
                 .build();
-        
+
         log.debug("Trace ID: {} for route: {}", traceId, getRouteId(exchange));
-        
+
         // Continue the filter chain with the mutated exchange
         return chain.filter(mutatedExchange)
                 .doFinally(signalType -> {
                     // Clear MDC after request completes
                     MDC.clear();
-                    
+
                     // Add trace ID to response headers
                     exchange.getResponse().getHeaders().add(TRACE_ID_HEADER, traceId);
                 });
@@ -62,7 +61,7 @@ public class TraceIdGlobalFilter implements GlobalFilter, Ordered {
     private String getOrGenerateTraceId(ServerWebExchange exchange) {
         // Check if trace ID already exists in request headers
         String traceId = exchange.getRequest().getHeaders().getFirst(TRACE_ID_HEADER);
-        
+
         if (traceId == null || traceId.isEmpty()) {
             // Generate new trace ID if not present
             traceId = generateTraceId();
@@ -70,7 +69,7 @@ public class TraceIdGlobalFilter implements GlobalFilter, Ordered {
         } else {
             log.debug("Using existing trace ID: {}", traceId);
         }
-        
+
         return traceId;
     }
 
