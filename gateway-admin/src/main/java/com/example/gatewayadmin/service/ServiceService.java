@@ -4,10 +4,14 @@ import com.example.gatewayadmin.center.ConfigCenterService;
 import com.example.gatewayadmin.properties.GatewayAdminProperties;
 import com.example.gatewayadmin.model.GatewayServicesConfig;
 import com.example.gatewayadmin.model.ServiceDefinition;
+import com.example.gatewayadmin.model.ServiceEntity;
+import com.example.gatewayadmin.repository.ServiceRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,19 +20,26 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * Service management service
+ * Service configuration management service.
+ * Manages service definitions: persists to H2, syncs cache, publishes to config center.
  *
  * @author leoli
  */
 @Slf4j
 @Service
-public class ServiceManager {
+public class ServiceService {
 
     @Autowired
   private ConfigCenterService configCenterService;
 
     @Autowired
   private GatewayAdminProperties properties;
+
+    @Autowired
+    private ServiceRepository serviceRepository;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
   private String servicesDataId;
   private ConfigCenterPublisher publisher;
@@ -39,8 +50,10 @@ public class ServiceManager {
     @PostConstruct
     public void init() {
         servicesDataId = properties.getNacos().getDataIds().getServices();
-        publisher=new ConfigCenterPublisher(configCenterService, servicesDataId);
-        // Load initial config from config center
+        publisher = new ConfigCenterPublisher(configCenterService, servicesDataId);
+        // First load from H2 database
+        loadServicesFromDatabase();
+        // Then overlay with Nacos config (Nacos takes precedence)
         loadServicesFromConfigCenter();
     }
 
@@ -83,12 +96,27 @@ public class ServiceManager {
     }
 
     /**
-     * Register service
+     * Create service configuration
      */
-    public boolean registerService(ServiceDefinition service) {
+    @Transactional
+    public boolean createService(ServiceDefinition service) {
         if (service == null || service.getName() == null || service.getName().isEmpty()) {
             log.warn("Invalid service definition");
             return false;
+        }
+
+        // Save to H2 database
+        try {
+            ServiceEntity entity = toEntity(service);
+            // Check if exists by name
+            ServiceEntity existing = serviceRepository.findByName(service.getName());
+            if (existing != null) {
+                entity.setId(existing.getId());
+            }
+            serviceRepository.save(entity);
+            log.info("Service saved to database: {}", service.getName());
+        } catch (Exception e) {
+            log.error("Failed to save service to database: {}", service.getName(), e);
         }
 
         serviceCache.put(service.getName(), service);
@@ -98,6 +126,7 @@ public class ServiceManager {
     /**
      * Update service
      */
+    @Transactional
     public boolean updateService(String name, ServiceDefinition service) {
         if (service == null || name == null || name.isEmpty()) {
             log.warn("Invalid service definition");
@@ -109,6 +138,19 @@ public class ServiceManager {
             return false;
         }
 
+        // Update H2 database
+        try {
+            ServiceEntity existing = serviceRepository.findByName(name);
+            ServiceEntity entity = toEntity(service);
+            if (existing != null) {
+                entity.setId(existing.getId());
+            }
+            serviceRepository.save(entity);
+            log.info("Service updated in database: {}", name);
+        } catch (Exception e) {
+            log.error("Failed to update service in database: {}", name, e);
+        }
+
         service.setName(name);
         serviceCache.put(name, service);
         return publisher.publish(new GatewayServicesConfig(new ArrayList<>(serviceCache.values())));
@@ -117,12 +159,25 @@ public class ServiceManager {
     /**
      * Delete service
      */
+    @Transactional
     public boolean deleteService(String name) {
         if (name == null || name.isEmpty()) {
             return false;
         }
 
         log.info("Deleting service from cache: {}", name);
+
+        // Delete from H2 database
+        try {
+            ServiceEntity existing = serviceRepository.findByName(name);
+            if (existing != null) {
+                serviceRepository.deleteById(existing.getId());
+                log.info("Service deleted from database: {}", name);
+            }
+        } catch (Exception e) {
+            log.error("Failed to delete service from database: {}", name, e);
+        }
+
         serviceCache.remove(name);
 
         // If cache is empty, remove config from Nacos directly
@@ -222,6 +277,66 @@ public class ServiceManager {
         } catch (Exception e) {
             log.error("Error loading services from Nacos", e);
         }
+    }
+
+    /**
+     * Load services from H2 database into cache.
+     */
+    private void loadServicesFromDatabase() {
+        try {
+            List<ServiceEntity> entities = serviceRepository.findAll();
+            for (ServiceEntity entity : entities) {
+                ServiceDefinition def = fromEntity(entity);
+                if (def.getName() != null) {
+                    serviceCache.put(def.getName(), def);
+                }
+            }
+            log.info("Loaded {} services from database", entities.size());
+        } catch (Exception e) {
+            log.warn("Failed to load services from database: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Convert ServiceDefinition to ServiceEntity.
+     */
+    private ServiceEntity toEntity(ServiceDefinition service) {
+        ServiceEntity entity = new ServiceEntity();
+        entity.setName(service.getName());
+        entity.setServiceName(service.getName());
+        entity.setLoadBalancer(service.getLoadBalancer());
+        entity.setDescription(service.getDescription());
+        entity.setEnabled(true);
+        try {
+            if (service.getInstances() != null) {
+                entity.setMetadata(objectMapper.writeValueAsString(service.getInstances()));
+            }
+        } catch (Exception e) {
+            log.warn("Failed to serialize service instances: {}", e.getMessage());
+        }
+        return entity;
+    }
+
+    /**
+     * Convert ServiceEntity to ServiceDefinition.
+     */
+    private ServiceDefinition fromEntity(ServiceEntity entity) {
+        ServiceDefinition def = new ServiceDefinition();
+        def.setName(entity.getName());
+        def.setLoadBalancer(entity.getLoadBalancer());
+        def.setDescription(entity.getDescription());
+        try {
+            if (entity.getMetadata() != null && !entity.getMetadata().isEmpty()) {
+                List<ServiceDefinition.ServiceInstance> instances = objectMapper.readValue(
+                    entity.getMetadata(),
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, ServiceDefinition.ServiceInstance.class)
+                );
+                def.setInstances(instances);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to deserialize service instances: {}", e.getMessage());
+        }
+        return def;
     }
 
     /**

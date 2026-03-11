@@ -5,6 +5,9 @@ import com.example.gatewayadmin.properties.GatewayAdminProperties;
 import com.example.gatewayadmin.model.AuthConfig;
 import com.example.gatewayadmin.model.GatewayPluginsConfig;
 import com.example.gatewayadmin.model.PluginConfig;
+import com.example.gatewayadmin.model.StrategyEntity;
+import com.example.gatewayadmin.repository.StrategyRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +35,12 @@ public class StrategyService {
     @Autowired
    private GatewayAdminProperties properties;
 
+    @Autowired
+    private StrategyRepository strategyRepository;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
    private String pluginsDataId;
    private ConfigCenterPublisher publisher;
 
@@ -41,7 +50,7 @@ public class StrategyService {
     @PostConstruct
     public void init() {
         pluginsDataId = properties.getNacos().getDataIds().getPlugins();
-        publisher= new ConfigCenterPublisher(configCenterService, pluginsDataId);
+        publisher = new ConfigCenterPublisher(configCenterService, pluginsDataId);
         // Load initial config from config center
         loadPluginsFromConfigCenter();
     }
@@ -171,7 +180,7 @@ public class StrategyService {
         }
 
         pluginCache.getRateLimiters().add(config);
-        return publisher.publish(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayPluginsConfig(pluginCache));
     }
 
     /**
@@ -190,7 +199,7 @@ public class StrategyService {
                 .collect(Collectors.toList()));
 
         pluginCache.getRateLimiters().add(config);
-        return publisher.publish(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayPluginsConfig(pluginCache));
     }
 
     /**
@@ -211,7 +220,7 @@ public class StrategyService {
             return publisher.remove();
         }
 
-        boolean result = publisher.publish(new GatewayPluginsConfig(pluginCache));
+        boolean result = publishAndSave(new GatewayPluginsConfig(pluginCache));
         if (result) {
             log.info("Successfully deleted rate limiter '{}' and published to Nacos", routeId);
         } else {
@@ -240,7 +249,7 @@ public class StrategyService {
         }
 
         pluginCache.getIpFilters().add(config);
-        return publisher.publish(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayPluginsConfig(pluginCache));
     }
 
     /**
@@ -259,7 +268,7 @@ public class StrategyService {
                 .collect(Collectors.toList()));
 
         pluginCache.getIpFilters().add(config);
-        return publisher.publish(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayPluginsConfig(pluginCache));
     }
 
     /**
@@ -280,7 +289,7 @@ public class StrategyService {
             return publisher.remove();
         }
 
-        boolean result = publisher.publish(new GatewayPluginsConfig(pluginCache));
+        boolean result = publishAndSave(new GatewayPluginsConfig(pluginCache));
         if (result) {
             log.info("Successfully deleted IP filter '{}' and published to Nacos", routeId);
         } else {
@@ -307,7 +316,7 @@ public class StrategyService {
         }
 
         pluginCache.getTimeouts().add(config);
-        return publisher.publish(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayPluginsConfig(pluginCache));
     }
 
     /**
@@ -326,7 +335,7 @@ public class StrategyService {
                 .collect(Collectors.toList()));
 
         pluginCache.getTimeouts().add(config);
-        return publisher.publish(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayPluginsConfig(pluginCache));
     }
 
     /**
@@ -347,7 +356,7 @@ public class StrategyService {
             return publisher.remove();
         }
 
-        boolean result = publisher.publish(new GatewayPluginsConfig(pluginCache));
+        boolean result = publishAndSave(new GatewayPluginsConfig(pluginCache));
         if (result) {
             log.info("Successfully deleted timeout config '{}' and published to Nacos", routeId);
         } else {
@@ -369,7 +378,7 @@ public class StrategyService {
 
         pluginCache.getCircuitBreakers().removeIf(c -> config.getRouteId().equals(c.getRouteId()));
         pluginCache.getCircuitBreakers().add(config);
-        return publisher.publish(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayPluginsConfig(pluginCache));
     }
 
     /**
@@ -388,7 +397,7 @@ public class StrategyService {
                 .collect(Collectors.toList()));
 
         pluginCache.getCircuitBreakers().add(config);
-        return publisher.publish(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayPluginsConfig(pluginCache));
     }
 
     /**
@@ -409,7 +418,7 @@ public class StrategyService {
             return publisher.remove();
         }
 
-        boolean result = publisher.publish(new GatewayPluginsConfig(pluginCache));
+        boolean result = publishAndSave(new GatewayPluginsConfig(pluginCache));
         if (result) {
             log.info("Successfully deleted circuit breaker '{}' and published to Nacos", routeId);
         } else {
@@ -426,7 +435,7 @@ public class StrategyService {
             return false;
         }
         this.pluginCache = plugins;
-        return publisher.publish(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayPluginsConfig(pluginCache));
     }
 
     /**
@@ -470,7 +479,7 @@ public class StrategyService {
         removeAuthConfig(config.getRouteId());
         pluginCache.getAuthConfigs().add(config);
         log.info("Created auth config for route {}: type={}", config.getRouteId(), config.getAuthType());
-        return publisher.publish(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayPluginsConfig(pluginCache));
     }
 
     /**
@@ -489,7 +498,7 @@ public class StrategyService {
             pluginCache.getAuthConfigs().remove(existing.get());
             pluginCache.getAuthConfigs().add(config);
             log.info("Updated auth config for route {}: type={}", config.getRouteId(), config.getAuthType());
-            return publisher.publish(new GatewayPluginsConfig(pluginCache));
+            return publishAndSave(new GatewayPluginsConfig(pluginCache));
         }
 
         return false;
@@ -504,7 +513,7 @@ public class StrategyService {
             if (list.get(i).getRouteId().equals(routeId)) {
                 list.remove(i);
                 log.info("Removed auth config for route: {}", routeId);
-                return publisher.publish(new GatewayPluginsConfig(pluginCache));
+                return publishAndSave(new GatewayPluginsConfig(pluginCache));
             }
         }
         return false;
@@ -548,5 +557,36 @@ public class StrategyService {
         private int enabledCircuitBreakers;
         private int ipFilterCount;
         private int enabledIpFilters;
+    }
+
+    /**
+     * Publish to Nacos and save snapshot to H2 database.
+     */
+    private boolean publishAndSave(GatewayPluginsConfig config) {
+        boolean result = publisher.publish(config);
+        if (result) {
+            saveToDatabase();
+        }
+        return result;
+    }
+
+    /**
+     * Save current pluginCache as a snapshot into H2 (one row per strategy type).
+     */
+    private void saveToDatabase() {
+        try {
+            String json = objectMapper.writeValueAsString(pluginCache);
+            // Use a fixed ID to upsert the single snapshot row
+            Optional<StrategyEntity> existing = strategyRepository.findById("__snapshot__");
+            StrategyEntity entity = existing.orElseGet(StrategyEntity::new);
+            entity.setId("__snapshot__");
+            entity.setStrategyType("SNAPSHOT");
+            entity.setConfig(json);
+            entity.setEnabled(true);
+            strategyRepository.save(entity);
+            log.debug("Strategy snapshot saved to database");
+        } catch (Exception e) {
+            log.warn("Failed to save strategy snapshot to database: {}", e.getMessage());
+        }
     }
 }

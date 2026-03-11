@@ -1,0 +1,26 @@
+package com.example.gatewayadmin.repository;
+
+import com.example.gatewayadmin.model.RouteEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+/**
+ * Route repository interface.
+ *
+ * @author leoli
+ */
+@Repository
+public interface RouteRepository extends JpaRepository<RouteEntity, String> {
+    
+    /**
+     * Find all enabled routes.
+     */
+    List<RouteEntity> findByEnabledTrue();
+    
+    /**
+     * Find routes by order.
+     */
+    List<RouteEntity> findAllByOrderByOrderNumAsc();
+}

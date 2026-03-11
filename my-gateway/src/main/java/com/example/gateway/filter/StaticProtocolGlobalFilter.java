@@ -10,12 +10,14 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.support.NotFoundException;
 import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
+import org.springframework.cloud.loadbalancer.support.LoadBalancerClientFactory;
 import org.springframework.core.Ordered;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.net.URI;
+import java.util.Objects;
 
 import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR;
 
@@ -31,15 +33,19 @@ public class StaticProtocolGlobalFilter implements GlobalFilter, Ordered {
 
     private final ServiceManager serviceManager;
     private final ConfigCenterService configService;
+    private final LoadBalancerClientFactory loadBalancerClientFactory;
 
     static {
         new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
     @Autowired
-    public StaticProtocolGlobalFilter(ConfigCenterService configService, ServiceManager serviceManager) {
+    public StaticProtocolGlobalFilter(ConfigCenterService configService,
+                                      ServiceManager serviceManager,
+                                      LoadBalancerClientFactory loadBalancerClientFactory) {
         this.configService = configService;
         this.serviceManager = serviceManager;
+        this.loadBalancerClientFactory = loadBalancerClientFactory;
         log.info("StaticProtocolGlobalFilter-ConfigService initialized: {}", configService.getCenterType());
 
         // Add listener to clear cache when configuration is deleted
@@ -64,7 +70,7 @@ public class StaticProtocolGlobalFilter implements GlobalFilter, Ordered {
         log.debug("StaticProtocolGlobalFilter - All attributes count: {}", exchange.getAttributes().size());
 
         URI routeUri = null;
-        if (routeObj != null) {
+        if (Objects.nonNull(routeObj)) {
             // Get URI from Route object
             try {
                 // Get uri property of Route object using reflection
@@ -80,41 +86,27 @@ public class StaticProtocolGlobalFilter implements GlobalFilter, Ordered {
         if (routeUri != null && "static".equalsIgnoreCase(routeUri.getScheme())) {
             log.info("Intercepting static:// protocol for route: {}", routeUri);
             try {
-                URI resolvedUri = resolveServiceUri(routeUri);
-                if (resolvedUri != null) {
-                    // Get original request path (after StripPrefix processing)
-                    URI requestUri = exchange.getRequest().getURI();
-                    String path = requestUri.getPath();
-
-                    // Extract IP and port from resolved URI
-                    String instanceIp = resolvedUri.getHost();
-                    int instancePort = resolvedUri.getPort();
-
-                    // Build complete HTTP URL: http://127.0.0.1:8080/hello
-                    URI finalUri = new URI(
-                            "http",  // Force use of http protocol
-                            null,    // userInfo
-                            instanceIp,  // host
-                            instancePort, // port
-                            path,    // path
-                            requestUri.getQuery(), // query
-                            requestUri.getFragment() // fragment
-                    );
-
-                    log.info("Resolved static://{} -> {} (with path: {})", routeUri.getHost(), finalUri, path);
-
-                    // Directly set final HTTP URL to avoid RouteToRequestUrlFilter processing again
-                    exchange.getAttributes().put(GATEWAY_REQUEST_URL_ATTR, finalUri);
-
-                    log.debug("Set GATEWAY_REQUEST_URL_ATTR to: {}", finalUri);
-
-                    return chain.filter(exchange);
-                } else {
-                    log.error("Failed to resolve static://{}", routeUri.getHost());
-                    return Mono.error(new NotFoundException("Unable to find instance for service: " + routeUri.getHost()));
-                }
+                // Convert static:// to lb:// and let SCG's native load balancer handle it
+                String serviceName = routeUri.getHost();
+                
+                // Create lb:// URI to delegate to SCG's load balancer (which uses Nacos discovery)
+                URI lbUri = new URI("lb", null, serviceName, -1, "/", null, null);
+                
+                // Mark this as originally a static:// request for DiscoveryLoadBalancerFilter
+                exchange.getAttributes().put("original_static_uri", routeUri.toString());
+                
+                // Replace static:// with lb:// in the route
+                exchange.getAttributes().put(GATEWAY_REQUEST_URL_ATTR, lbUri);
+                
+                log.info("Converted static://{} -> lb://{} for SCG+Nacos load balancing", serviceName, serviceName);
+                            
+                // Log Nacos discovery info for debugging
+                log.info("Will use Nacos Discovery to find instances for: {}", serviceName);
+                            
+                return chain.filter(exchange);
+                
             } catch (Exception e) {
-                log.error("Error resolving static protocol", e);
+                log.error("Error converting static protocol to lb protocol", e);
                 return Mono.error(e);
             }
         } else if (routeUri != null && "lb".equalsIgnoreCase(routeUri.getScheme())) {
@@ -167,14 +159,16 @@ public class StaticProtocolGlobalFilter implements GlobalFilter, Ordered {
             }
         }
 
-        // Load from config center
+        // Cache is invalid or empty, this should not happen as ServiceRefresher loads config on startup
+        // This is just a fallback - in normal cases, ServiceRefresher has already loaded the config
+        log.warn("Service cache is invalid, attempting to load from config center");
         String servicesJson = configService.getConfig("gateway-services.json", "DEFAULT_GROUP");
         if (servicesJson == null || servicesJson.isEmpty()) {
-            log.warn("No services configuration found in Nacos");
+            log.error("No services configuration found in Nacos");
             return null;
         }
 
-        // Load into ServiceManager
+        // Load into ServiceManager (this should have been done by ServiceRefresher)
         serviceManager.loadConfig(servicesJson);
 
         // Get endpoint from ServiceManager
@@ -183,7 +177,7 @@ public class StaticProtocolGlobalFilter implements GlobalFilter, Ordered {
             log.info("Resolved service {} -> {}:{}", serviceName, endpoint.getIp(), endpoint.getPort());
             return new URI("http", null, endpoint.getIp(), endpoint.getPort(), "/", null, null);
         } else {
-            log.warn("Service not found in configuration: {}", serviceName);
+            log.error("Service not found in configuration: {}", serviceName);
             return null;
         }
     }

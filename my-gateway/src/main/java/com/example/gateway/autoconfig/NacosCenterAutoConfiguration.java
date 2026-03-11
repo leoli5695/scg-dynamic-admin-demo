@@ -18,9 +18,8 @@ import java.util.Properties;
  * Nacos auto-configuration for both Config Center and Service Discovery.
  */
 @Slf4j
-@Setter
 @Configuration
-@ConfigurationProperties(prefix = "spring.cloud.nacos.config")
+@ConfigurationProperties(prefix = "spring.cloud.nacos")
 @ConditionalOnProperty(name = "gateway.center.type", havingValue = "nacos", matchIfMissing = true)
 public class NacosCenterAutoConfiguration {
 
@@ -33,13 +32,18 @@ public class NacosCenterAutoConfiguration {
     @Bean
     public ConfigService nacosConfigService() throws Exception {
         Properties props = new Properties();
-        props.setProperty("serverAddr", serverAddr);
-        if (!namespace.isEmpty()) {
+        props.setProperty("serverAddr", serverAddr != null ? serverAddr : "127.0.0.1:8848");
+        if (namespace != null && !namespace.isEmpty()) {
             props.setProperty("namespace", namespace);
         }
 
+        log.info("Initializing Nacos ConfigService with server: {}", props.getProperty("serverAddr"));
+        if (namespace != null && !namespace.isEmpty()) {
+            log.info("Using namespace: {}", namespace);
+        }
+        
         ConfigService configService = NacosFactory.createConfigService(props);
-        log.info("Nacos ConfigService initialized with server: {}", serverAddr);
+        log.info("Nacos ConfigService initialized successfully");
         return configService;
     }
 
@@ -48,15 +52,27 @@ public class NacosCenterAutoConfiguration {
      */
     @Bean
     public NamingService nacosNamingService() throws Exception {
+        String actualServerAddr = serverAddr != null ? serverAddr : "127.0.0.1:8848";
         Properties props = new Properties();
-        props.setProperty("serverAddr", serverAddr);
-        if (!namespace.isEmpty()) {
+        props.setProperty("serverAddr", actualServerAddr);
+        if (namespace != null && !namespace.isEmpty()) {
             props.setProperty("namespace", namespace);
         }
 
-        NamingService namingService = NacosFactory.createNamingService(props);
-        log.info("Nacos NamingService initialized with server: {}", serverAddr);
-        return namingService;
+        log.info("Initializing Nacos NamingService with server: {}", actualServerAddr);
+        if (namespace != null && !namespace.isEmpty()) {
+            log.info("Using namespace: {}", namespace);
+        }
+        
+        try {
+            NamingService namingService = NacosFactory.createNamingService(props);
+            log.info("Nacos NamingService initialized successfully");
+            return namingService;
+        } catch (Exception e) {
+            log.error("Failed to create Nacos NamingService. ServerAddr: {}, Namespace: {}. Error: {}", 
+                     actualServerAddr, namespace, e.getMessage(), e);
+            throw e;
+        }
     }
 
     /**

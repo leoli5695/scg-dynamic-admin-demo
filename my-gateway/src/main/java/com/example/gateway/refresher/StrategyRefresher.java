@@ -82,6 +82,26 @@ public class StrategyRefresher extends AbstractRefresher {
         }
     }
 
+    /**
+     * Reload configuration from Nacos manually (fallback when cache is invalid)
+     */
+    public void reloadConfigFromNacos() {
+        log.info("Manually reloading strategy configuration from Nacos");
+        try {
+            String config = configService.getConfig(DATA_ID, GROUP);
+            if (config != null && !config.isBlank()) {
+                log.info("Successfully reloaded strategy configuration from Nacos");
+                onConfigChange(DATA_ID, config);
+            } else {
+                log.warn("No strategy configuration found in Nacos during manual reload");
+                // Clear StrategyManager cache
+                strategyManager.clearCache();
+            }
+        } catch (Exception e) {
+            log.error("Failed to reload strategy configuration from Nacos: {}", e.getMessage(), e);
+        }
+    }
+
     @Override
     protected Object parseConfig(String json) {
         try {

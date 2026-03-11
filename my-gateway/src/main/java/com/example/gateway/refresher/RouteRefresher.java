@@ -47,14 +47,53 @@ public class RouteRefresher extends AbstractRefresher {
     public void init() {
         // Register listener to Nacos config center
         ConfigCenterService.ConfigListener listener = (dataId, group, newContent) -> {
-            log.info("Route config change detected: {}", dataId);
-            onConfigChange(dataId, newContent);
+            log.info("Route config change detected: {}, content={}", dataId, 
+                    newContent == null ? "null" : (newContent.isBlank() ? "empty" : "has content"));
+            if (newContent == null || newContent.isBlank()) {
+                log.warn("Route config deleted or empty, clearing cache");
+                clearCache();
+            } else {
+                onConfigChange(dataId, newContent);
+            }
         };
         configService.addListener(DATA_ID, GROUP, listener);
         log.info("RouteRefresher registered listener for {}", DATA_ID);
 
         // Load initial configuration
         loadInitialConfig();
+        
+        // Warmup: proactively sync from Nacos on startup
+        warmupCache();
+    }
+    
+    /**
+     * Warmup cache on startup to ensure routes are available immediately.
+     */
+    private void warmupCache() {
+        log.info("🔥 Warming up route cache on startup...");
+        try {
+            reloadConfigFromNacos();
+            log.info("✅ Route cache warmed up successfully");
+        } catch (Exception e) {
+            log.warn("⚠️  Route cache warmup failed, will load on first request: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Clear route cache when configuration is deleted
+     */
+    private void clearCache() {
+        try {
+            // Clear RouteManager cache
+            routeManager.loadConfig("[]"); // Empty array
+            
+            // Trigger SCG to refresh and remove all routes
+            routeLocator.refresh();
+            
+            log.info("Route cache cleared successfully");
+        } catch (Exception e) {
+            log.error("Failed to clear route cache: {}", e.getMessage(), e);
+        }
     }
 
     /**
@@ -84,6 +123,25 @@ public class RouteRefresher extends AbstractRefresher {
             }
         } catch (Exception e) {
             log.error("Failed to load initial route configuration: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Reload configuration from Nacos manually (fallback when cache is invalid)
+     */
+    public void reloadConfigFromNacos() {
+        log.info("Manually reloading route configuration from Nacos");
+        try {
+            String config = configService.getConfig(DATA_ID, GROUP);
+            if (config != null && !config.isBlank()) {
+                log.info("Successfully reloaded route configuration from Nacos");
+                onConfigChange(DATA_ID, config);
+            } else {
+                log.warn("No route configuration found in Nacos during manual reload");
+                clearCache();
+            }
+        } catch (Exception e) {
+            log.error("Failed to reload route configuration from Nacos: {}", e.getMessage(), e);
         }
     }
 

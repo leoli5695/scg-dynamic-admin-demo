@@ -4,52 +4,48 @@ server:
 spring:
   application:
     name: my-gateway
-  config:
-  import: optional:nacos:application.yml
-  data:
-    redis:
-      host: ${REDIS_HOST:127.0.0.1}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-      database: ${REDIS_DATABASE:0}
-      timeout: ${REDIS_TIMEOUT:5000ms}
-      lettuce:
-        pool:
-          max-active: ${REDIS_POOL_MAX_ACTIVE:8}
-          max-idle: ${REDIS_POOL_MAX_IDLE:8}
-          min-idle: ${REDIS_POOL_MIN_IDLE:0}
+  autoconfigure:
+    exclude:
+      - org.springframework.cloud.consul.serviceregistry.ConsulAutoServiceRegistrationAutoConfiguration
+      - org.springframework.cloud.consul.discovery.ConsulDiscoveryClientConfiguration
+      - org.springframework.cloud.consul.discovery.ReactiveConsulDiscoveryClientConfiguration
   cloud:
-    # Nacos Configuration
-    nacos:
-      config:
-        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
-        namespace: ${NACOS_NAMESPACE:""}
-        file-extension: ${NACOS_FILE_EXTENSION:yaml}
-        shared-configs:
-          - data-id: ${NACOS_SHARED_CONFIG_DATA_ID:gateway-routes.json}
-        refresh: ${NACOS_SHARED_CONFIG_REFRESH:true}
-    discovery:
-      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
-      namespace: ${NACOS_NAMESPACE:""}
+    # Enable load balancer with DiscoveryClient
+    loadbalancer:
+      enabled: true
     
+    # Nacos Discovery (config is pulled manually, not via Spring Cloud Nacos Config)
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+
     # Consul Configuration (alternative to Nacos)
-  consul:
-    host: ${CONSUL_HOST:localhost}
-    port: ${CONSUL_PORT:8500}
-    config:
-      prefix: ${CONSUL_CONFIG_PREFIX:config}
-    discovery:
-      enabled: ${CONSUL_DISCOVERY_ENABLED:true}
-      health-check-path: ${CONSUL_HEALTH_CHECK_PATH:/actuator/health}
-      health-check-interval: ${CONSUL_HEALTH_CHECK_INTERVAL:10s}
+    consul:
+      host: ${CONSUL_HOST:localhost}
+      port: ${CONSUL_PORT:8500}
+      config:
+        enabled: false
+        import-check:
+          enabled: false
+        prefix: ${CONSUL_CONFIG_PREFIX:config}
+      discovery:
+        enabled: ${CONSUL_DISCOVERY_ENABLED:false}
+        health-check-path: ${CONSUL_HEALTH_CHECK_PATH:/actuator/health}
+        health-check-interval: ${CONSUL_HEALTH_CHECK_INTERVAL:10s}
+      service-registry:
+        enabled: ${CONSUL_SERVICE_REGISTRY_ENABLED:false}
+      enabled: false  # Explicitly disable Consul
 
   gateway:
     discovery:
       locator:
         enabled: ${GATEWAY_DISCOVERY_LOCATOR_ENABLED:true}
+        # Enable lowerCaseServiceId for easier routing
+        lower-case-service-id: ${GATEWAY_LOWER_CASE_SERVICE_ID:false}
       httpclient:
         pool:
-        type: ELASTIC
+          type: ELASTIC
 
 # Gateway Center Configuration
 # Set type to 'nacos' (default) or 'consul' to switch between config centers
@@ -59,6 +55,10 @@ gateway:
 
 logging:
   level:
-    org.springframework.cloud.gateway: ${LOG_LEVEL_GATEWAY:DEBUG}
+    org.springframework.cloud.gateway: ${LOG_LEVEL_GATEWAY:INFO}
   com.alibaba.nacos: ${LOG_LEVEL_NACOS:INFO}
   com.ecwid.consul: ${LOG_LEVEL_CONSUL:INFO}
+management:
+  health:
+    consul:
+      enabled: false

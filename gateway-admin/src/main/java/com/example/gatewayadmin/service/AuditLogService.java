@@ -1,7 +1,7 @@
 package com.example.gatewayadmin.service;
 
-import com.example.gatewayadmin.mapper.AuditLogMapper;
 import com.example.gatewayadmin.model.AuditLogEntity;
+import com.example.gatewayadmin.repository.AuditLogRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
 public class AuditLogService {
 
     @Autowired
-    private AuditLogMapper auditLogMapper;
+    private AuditLogRepository auditLogRepository;
 
     /**
      * Record an audit log asynchronously.
@@ -35,7 +35,7 @@ public class AuditLogService {
             auditLog.setNewValue(newValue);
             auditLog.setIpAddress(ipAddress);
             
-            auditLogMapper.insert(auditLog);
+            auditLogRepository.save(auditLog);
             log.debug("Audit log recorded: {} {} {} by {}", operationType, targetType, targetId, operator);
         } catch (Exception ex) {
             log.error("Failed to record audit log", ex);

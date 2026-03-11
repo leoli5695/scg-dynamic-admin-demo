@@ -1,0 +1,30 @@
+# Gateway Cache Configuration
+# These settings control the behavior of the unified cache manager
+
+gateway:
+  cache:
+    # Cache Time-To-Live in milliseconds
+    # After this period, cache will be considered expired and reload from Nacos
+    # Default: 300000 (5 minutes)
+    # Recommended values by environment:
+    #   - Development: 60000 (1 minute) - frequent changes
+    #   - Testing: 300000 (5 minutes) - balanced
+    #   - Production: 600000 (10 minutes) - stability focused
+    ttl-ms: 300000
+    
+    # Scheduled synchronization interval in milliseconds
+    # Background task that proactively syncs config from Nacos
+    # Default: 1800000 (30 minutes)
+    # This ensures config freshness even if no requests trigger reload
+    sync-interval-ms: 1800000
+    
+    # Alert configuration (optional)
+    # Enable/disable alert notifications
+    alert:
+      enabled: true
+      # Alert on cache miss (using fallback)
+      on-fallback: true
+      # Alert on Nacos unavailability
+      on-nacos-error: true
+      # Alert on scheduled sync failure
+      on-sync-failure: true

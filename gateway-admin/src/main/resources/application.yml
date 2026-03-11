@@ -6,14 +6,19 @@ spring:
     name: gateway-admin
   profiles:
     active: dev
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
   datasource:
     driver-class-name: org.h2.Driver
-    url: jdbc:h2:file:./data/gateway_db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;AUTO_SERVER=TRUE
+    url: jdbc:h2:file:./data/gateway_db;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE
     username: sa
     password:
+  jpa:
+    hibernate:
+      ddl-auto: update  # Auto-create tables if not exist
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+    database-platform: org.hibernate.dialect.H2Dialect
   h2:
     console:
       enabled: true
@@ -33,27 +38,7 @@ spring:
           max-idle: 8
           min-idle: 0
   cloud:
-    # Config Center type: nacos (default) or consul
-    # gateway.center.type=nacos -> uses NacosConfigCenterService
-    # gateway.center.type=consul -> uses ConsulConfigCenterService
     nacos:
-      config:
-        server-addr: 127.0.0.1:8848
-        namespace: public
-        group: DEFAULT_GROUP
-        file-extension: json
-        import-check:
-          enabled: false
-        extension-configs:
-          - data-id: gateway-routes.json
-            group: DEFAULT_GROUP
-            refresh: true
-          - data-id: gateway-services.json
-            group: DEFAULT_GROUP
-            refresh: true
-          - data-id: gateway-plugins.json
-            group: DEFAULT_GROUP
-            refresh: true
       discovery:
         server-addr: 127.0.0.1:8848
         namespace: public
@@ -64,13 +49,9 @@ spring:
       discovery:
         enabled: false  # Disable service discovery for admin console
       config:
-        enabled: true
-        prefix: config
-        profile-separator: ','
-        format: JSON
-        watch:
-          enabled: true
-          wait: 10s
+        enabled: false  # Disable Consul config center, using local YAML instead
+        import-check:
+          enabled: false
 
 gateway:
   center:

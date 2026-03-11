@@ -2,21 +2,24 @@ package com.example.gatewayadmin.center;
 
 import com.alibaba.nacos.api.config.ConfigService;
 import com.alibaba.nacos.api.config.ConfigType;
-import com.alibaba.nacos.api.config.listener.Listener;
 import com.alibaba.nacos.api.exception.NacosException;
+import com.alibaba.nacos.api.naming.NamingService;
+import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacos.client.config.NacosConfigService;
-import com.example.gatewayadmin.listener.ConfigChangeListener;
+import com.alibaba.nacos.client.naming.NacosNamingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.Executor;
 
 /**
  * Nacos implementation of ConfigCenterService.
@@ -26,20 +29,18 @@ import java.util.concurrent.Executor;
  */
 @Slf4j
 @Service
+@Setter
+@ConfigurationProperties(prefix = "spring.cloud.nacos.discovery")
 @ConditionalOnProperty(name = "gateway.center.type", havingValue = "nacos", matchIfMissing = true)
 public class NacosConfigCenterService implements ConfigCenterService {
 
-    @Value("${spring.cloud.nacos.config.server-addr:127.0.0.1:8848}")
-   private String serverAddr;
+    private String group;
+    private String namespace;
+    private String serverAddr;
 
-    @Value("${spring.cloud.nacos.config.namespace:public}")
-   private String namespace;
-
-    @Value("${spring.cloud.nacos.config.group:DEFAULT_GROUP}")
-   private String group;
-
-   private ConfigService configService;
-   private final ObjectMapper objectMapper;
+    private ConfigService configService;
+    private NamingService namingService;
+    private final ObjectMapper objectMapper;
 
     public NacosConfigCenterService() {
         this.objectMapper = new ObjectMapper();
@@ -49,21 +50,23 @@ public class NacosConfigCenterService implements ConfigCenterService {
     @PostConstruct
     public void init() throws NacosException {
         Properties properties = new Properties();
-       properties.put("serverAddr", serverAddr);
-       if (namespace != null && !namespace.isEmpty()) {
-           properties.put("namespace", namespace);
+        properties.put("serverAddr", serverAddr);
+        // Nacos public namespace must use empty string, not "public"
+        if (namespace != null && !namespace.isEmpty() && !"public".equals(namespace)) {
+            properties.put("namespace", namespace);
         }
-       properties.put("group", group);
+        properties.put("group", group);
 
         this.configService = new NacosConfigService(properties);
-        log.info("Nacos Config Center initialized with serverAddr={}, namespace={}, group={}", 
-               serverAddr, namespace, group);
+        this.namingService = new NacosNamingService(properties);
+        log.info("Nacos Config Center initialized with serverAddr={}, namespace={}, group={}",
+                serverAddr, namespace.isEmpty() ? "public" : namespace, group);
     }
 
     @PreDestroy
     public void destroy() throws NacosException {
-       if (configService != null) {
-           configService.shutDown();
+        if (configService != null) {
+            configService.shutDown();
             log.info("Nacos Config Center shut down");
         }
     }
@@ -73,15 +76,15 @@ public class NacosConfigCenterService implements ConfigCenterService {
     public <T> T getConfig(String dataId, Class<T> type) {
         try {
             String content = configService.getConfig(dataId, group, 5000);
-           if (content == null || content.trim().isEmpty()) {
+            if (content == null || content.trim().isEmpty()) {
                 log.debug("No configuration found for dataId: {}", dataId);
-               return null;
+                return null;
             }
 
             T config = objectMapper.readValue(content, type);
             log.debug("Loaded configuration from Nacos: dataId={}, type={}", dataId, type.getSimpleName());
-           return config;
-        } catch(NacosException ex) {
+            return config;
+        } catch (NacosException ex) {
             log.error("Failed to get configuration from Nacos: dataId={}, error={}", dataId, ex.getMessage(), ex);
             throw new RuntimeException("Failed to get config from Nacos: " + dataId, ex);
         } catch (Exception ex) {
@@ -94,17 +97,17 @@ public class NacosConfigCenterService implements ConfigCenterService {
     public boolean publishConfig(String dataId, Object config) {
         try {
             String content = objectMapper.writeValueAsString(config);
-            boolean result = configService.publishConfig(dataId, group, content);
-           if (result) {
+            boolean result = configService.publishConfig(dataId, group, content, ConfigType.JSON.getType());
+            if (result) {
                 log.info("Published configuration to Nacos: dataId={}, contentLength={}", dataId, content.length());
             } else {
                 log.warn("Failed to publish configuration to Nacos: dataId={}", dataId);
             }
-           return result;
+            return result;
         } catch (NacosException ex) {
             log.error("Failed to publish configuration to Nacos: dataId={}, error={}", dataId, ex.getMessage(), ex);
             throw new RuntimeException("Failed to publish config to Nacos: " + dataId, ex);
-        } catch(Exception ex) {
+        } catch (Exception ex) {
             log.error("Failed to serialize configuration to JSON: dataId={}, error={}", dataId, ex.getMessage(), ex);
             throw new RuntimeException("Failed to serialize config to JSON: " + dataId, ex);
         }
@@ -114,53 +117,46 @@ public class NacosConfigCenterService implements ConfigCenterService {
     public boolean removeConfig(String dataId) {
         try {
             boolean result = configService.removeConfig(dataId, group);
-           if (result) {
+            if (result) {
                 log.info("Removed configuration from Nacos: dataId={}", dataId);
             } else {
                 log.warn("Failed to remove configuration from Nacos: dataId={}", dataId);
             }
-           return result;
-        } catch(NacosException ex) {
+            return result;
+        } catch (NacosException ex) {
             log.error("Failed to remove configuration from Nacos: dataId={}, error={}", dataId, ex.getMessage(), ex);
             throw new RuntimeException("Failed to remove config from Nacos: " + dataId, ex);
         }
     }
 
     @Override
-    public void addListener(String dataId, ConfigChangeListener listener) {
-        try {
-           configService.addListener(dataId, group, new Listener() {
-                @Override
-                public Executor getExecutor() {
-                   return null; // Use default executor
-                }
-
-                @Override
-                public void receiveConfigInfo(String configInfo) {
-                    log.info("Configuration changed in Nacos: dataId={}", dataId);
-                    listener.onChanged(configInfo);
-                }
-            });
-            log.info("Added listener for dataId: {}", dataId);
-        } catch (NacosException ex) {
-            log.error("Failed to add listener for dataId: {}, error={}", dataId, ex.getMessage(), ex);
-            throw new RuntimeException("Failed to add listener: " + dataId, ex);
-        }
-    }
-
-    @Override
-    public void removeListener(String dataId) {
-        try {
-            // Note: Nacos doesn't provide a direct way to remove a specific listener
-            // This is a limitation - in practice, listeners are removed when ConfigService shuts down
-            log.warn("Removing specific listener is not supported in Nacos.dataId={}", dataId);
-        } catch (Exception ex) {
-            log.error("Error while attempting to remove listener: dataId={}, error={}", dataId, ex.getMessage(), ex);
-        }
-    }
-
-    @Override
     public String getConfigCenterType() {
-       return "nacos";
+        return "nacos";
+    }
+
+    /**
+     * Get all registered service names from Nacos service discovery.
+     */
+    public List<String> getDiscoveryServiceNames() {
+        try {
+            List<String> services = namingService.getServicesOfServer(1, Integer.MAX_VALUE).getData();
+            return services != null ? services : Collections.emptyList();
+        } catch (Exception e) {
+            log.error("Error getting services from Nacos discovery", e);
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Get all instances of a service from Nacos service discovery.
+     */
+    public List<Instance> getDiscoveryInstances(String serviceName) {
+        try {
+            List<Instance> instances = namingService.getAllInstances(serviceName);
+            return instances != null ? instances : Collections.emptyList();
+        } catch (Exception e) {
+            log.error("Error getting instances for service {} from Nacos discovery", serviceName, e);
+            return Collections.emptyList();
+        }
     }
 }

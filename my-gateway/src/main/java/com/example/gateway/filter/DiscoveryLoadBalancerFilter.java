@@ -1,14 +1,15 @@
 package com.example.gateway.filter;
 
-import com.example.gateway.discovery.spi.DiscoveryService;
+import com.example.gateway.discovery.staticdiscovery.StaticDiscoveryService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.client.ServiceInstance;
-import org.springframework.cloud.client.loadbalancer.*;
+import org.springframework.cloud.client.loadbalancer.LoadBalancerProperties;
+import org.springframework.cloud.client.loadbalancer.LoadBalancerUriTools;
+import org.springframework.cloud.client.loadbalancer.Response;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.support.NotFoundException;
 import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
-import org.springframework.cloud.loadbalancer.core.ReactorServiceInstanceLoadBalancer;
 import org.springframework.cloud.loadbalancer.support.LoadBalancerClientFactory;
 import org.springframework.core.Ordered;
 import org.springframework.stereotype.Component;
@@ -18,10 +19,12 @@ import reactor.core.publisher.Mono;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Load Balancer Filter based on Service Discovery
- * Replaces Spring Cloud Gateway's built-in ReactiveLoadBalancerClientFilter
+ * Load Balancer Filter for static:// protocol
+ * Uses StaticDiscoveryService to get instances and applies weighted round-robin
  *
  * @author leoli
  * @version 1.0
@@ -31,12 +34,16 @@ import java.util.List;
 public class DiscoveryLoadBalancerFilter implements GlobalFilter, Ordered {
 
     private final LoadBalancerClientFactory clientFactory;
-    private final DiscoveryService discoveryService;
+    private final StaticDiscoveryService staticDiscoveryService;
 
-    public DiscoveryLoadBalancerFilter(LoadBalancerClientFactory clientFactory, DiscoveryService discoveryService) {
+    // Map to store current weights for smooth weighted round-robin
+    private final Map<String, Double> currentWeights = new ConcurrentHashMap<>();
+
+    public DiscoveryLoadBalancerFilter(LoadBalancerClientFactory clientFactory,
+                                       StaticDiscoveryService staticDiscoveryService) {
         this.clientFactory = clientFactory;
-        this.discoveryService = discoveryService;
-        log.info("DiscoveryLoadBalancerFilter initialized with DiscoveryService: {}", discoveryService.getCenterType());
+        this.staticDiscoveryService = staticDiscoveryService;
+        log.info("DiscoveryLoadBalancerFilter initialized with StaticDiscoveryService");
     }
 
     @Override
@@ -44,18 +51,26 @@ public class DiscoveryLoadBalancerFilter implements GlobalFilter, Ordered {
         URI url = (URI) exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR);
         String schemePrefix = (String) exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_SCHEME_PREFIX_ATTR);
 
-        // Only process requests with lb:// protocol
-        if (url != null && ("lb".equals(url.getScheme()) || "lb".equals(schemePrefix))) {
+        // Only process requests with lb:// protocol that were converted from static://
+        // Skip native lb:// requests - let SCG's ReactiveLoadBalancerClientFilter handle them
+        if (url != null && "lb".equals(url.getScheme()) || "lb".equals(schemePrefix)) {
+            // Check if this was originally a static:// request
+            String originalUri = exchange.getAttribute("original_static_uri");
+            if (originalUri == null) {
+                // This is a native lb:// request, skip and let SCG handle it
+                return chain.filter(exchange);
+            }
+
             ServerWebExchangeUtils.addOriginalRequestUrl(exchange, url);
 
             if (log.isTraceEnabled()) {
-                log.trace("DiscoveryLoadBalancerFilter url before: " + url);
+                log.trace("DiscoveryLoadBalancerFilter processing static-converted request: " + url);
             }
 
             URI requestUri = (URI) exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR);
             String serviceId = requestUri.getHost();
 
-            // Get service instances from DiscoveryService
+            // Get service instances from StaticDiscoveryService
             return chooseFromDiscovery(serviceId, exchange)
                     .flatMap(response -> {
                         if (!response.hasServer()) {
@@ -89,147 +104,31 @@ public class DiscoveryLoadBalancerFilter implements GlobalFilter, Ordered {
     }
 
     /**
-     * Choose service instance from DiscoveryService
+     * Choose service instance from StaticDiscoveryService
      */
     private Mono<Response<ServiceInstance>> chooseFromDiscovery(String serviceId, ServerWebExchange exchange) {
-        log.debug("Choosing instance for service: {} from {}", serviceId, discoveryService.getCenterType());
+        log.debug("Choosing instance for service: {} from StaticDiscoveryService", serviceId);
 
         try {
-            // Get healthy instances directly from DiscoveryService
-            List<DiscoveryService.ServiceInstance> instances = discoveryService.getHealthyInstances(serviceId);
+            // Get instances from StaticDiscoveryService
+            List<ServiceInstance> instances = staticDiscoveryService.getInstances(serviceId);
 
             if (CollectionUtils.isEmpty(instances)) {
-                log.warn("No instances found for service: {} in {}", serviceId, discoveryService.getCenterType());
+                log.warn("No instances found for service: {} in StaticDiscoveryService", serviceId);
                 return Mono.empty();
             }
 
-            log.info("Found {} instance(s) for service: {} in {}", instances.size(), serviceId, discoveryService.getCenterType());
+            log.info("Found {} instance(s) for service: {} in StaticDiscoveryService",
+                    instances.size(), serviceId);
 
-            // Convert our ServiceInstance to Spring Cloud ServiceInstance
-            List<ServiceInstance> serviceInstances = instances.stream()
-                    .map(this::convertToSpringServiceInstance)
-                    .toList();
-
-            if (serviceInstances.isEmpty()) {
-                log.warn("No healthy/enabled instances for service: {}", serviceId);
-                return Mono.empty();
-            }
-
-            // Use SCG's built-in load balancer to select instance
-            ReactorServiceInstanceLoadBalancer loadBalancer =
-                    clientFactory.getInstance(serviceId, ReactorServiceInstanceLoadBalancer.class);
-
-            if (loadBalancer == null) {
-                log.warn("No loadbalancer available for {}, using weighted round-robin", serviceId);
-                // If no load balancer is configured, use weighted round-robin strategy
-                DiscoveryService.ServiceInstance selected = selectByWeightedRoundRobin(instances);
-                ServiceInstance serviceInstance = convertToSpringServiceInstance(selected);
-                return Mono.just(new SimpleResponse<>(serviceInstance));
-            }
-
-            // Build Request object for the load balancer
-            RequestData requestData = new RequestData(exchange.getRequest());
-            RequestDataContext requestContext = new RequestDataContext(requestData, getHint(serviceId));
-            DefaultRequest<RequestDataContext> lbRequest = new DefaultRequest<>(requestContext);
-
-            // Use SCG's load balancer
-            return loadBalancer.choose(lbRequest)
-                    .switchIfEmpty(Mono.fromSupplier(() -> {
-                        // If load balancer returns empty, use weighted round-robin
-                        DiscoveryService.ServiceInstance selected = selectByWeightedRoundRobin(instances);
-                        return new SimpleResponse<>(convertToSpringServiceInstance(selected));
-                    }));
+            // Use smooth weighted round-robin to select instance
+            ServiceInstance selected = selectByWeightedRoundRobin(instances);
+            return Mono.just(new SimpleResponse<>(selected));
 
         } catch (Exception e) {
-            log.error("Error choosing instance from {} for service: {}", discoveryService.getCenterType(), serviceId, e);
+            log.error("Error choosing instance from StaticDiscoveryService for service: {}", serviceId, e);
             return Mono.error(e);
         }
-    }
-
-    /**
-     * Convert our ServiceInstance to Spring Cloud ServiceInstance
-     */
-    private ServiceInstance convertToSpringServiceInstance(DiscoveryService.ServiceInstance instance) {
-        return new ServiceInstance() {
-            @Override
-            public String getServiceId() {
-                return instance.getServiceId();
-            }
-
-            @Override
-            public String getHost() {
-                return instance.getHost();
-            }
-
-            @Override
-            public int getPort() {
-                return instance.getPort();
-            }
-
-            @Override
-            public boolean isSecure() {
-                return false; // Can be extended based on metadata
-            }
-
-            @Override
-            public URI getUri() {
-                try {
-                    return new URI("http://" + instance.getHost() + ":" + instance.getPort());
-                } catch (Exception e) {
-                    throw new IllegalStateException("Failed to create URI", e);
-                }
-            }
-
-            @Override
-            public java.util.Map<String, String> getMetadata() {
-                return null; // Metadata not supported in new ServiceInstance
-            }
-
-            @Override
-            public String getInstanceId() {
-                return instance.getHost() + ":" + instance.getPort(); // Generate instanceId from host:port
-            }
-        };
-    }
-
-    /**
-     * Select instance by weighted round-robin strategy
-     */
-    private DiscoveryService.ServiceInstance selectByWeightedRoundRobin(List<DiscoveryService.ServiceInstance> instances) {
-        if (instances.size() == 1) {
-            return instances.get(0);
-        }
-
-        // Calculate total weight
-        double totalWeight = instances.stream()
-                .mapToDouble(DiscoveryService.ServiceInstance::getWeight)
-                .sum();
-
-        // Calculate average weight
-        double avgWeight = totalWeight / instances.size();
-
-        // If all weights are the same, use normal round-robin
-        boolean sameWeight = instances.stream()
-                .allMatch(inst -> Math.abs(inst.getWeight() - avgWeight) < 0.01);
-        if (sameWeight) {
-            int index = (int) (System.currentTimeMillis() / 1000) % instances.size();
-            return instances.get(index);
-        }
-
-        // Select randomly based on weight proportion
-        double random = Math.random() * totalWeight;
-        double weightSum = 0;
-
-        for (DiscoveryService.ServiceInstance instance : instances) {
-            weightSum += instance.getWeight();
-            if (random <= weightSum) {
-                log.debug("Selected instance {}:{} with weight {} (total: {})",
-                        instance.getHost(), instance.getPort(), instance.getWeight(), totalWeight);
-                return instance;
-            }
-        }
-
-        return instances.get(instances.size() - 1);
     }
 
     /**
@@ -237,6 +136,85 @@ public class DiscoveryLoadBalancerFilter implements GlobalFilter, Ordered {
      */
     protected URI reconstructURI(ServiceInstance serviceInstance, URI original) {
         return LoadBalancerUriTools.reconstructURI(serviceInstance, original);
+    }
+
+    /**
+     * Select instance by Smooth Weighted Round-Robin algorithm (Nginx style)
+     * This ensures strict weight distribution over time.
+     */
+    private ServiceInstance selectByWeightedRoundRobin(List<ServiceInstance> instances) {
+        if (instances.size() == 1) {
+            return instances.get(0);
+        }
+
+        // Initialize current weights if not exists
+        for (ServiceInstance instance : instances) {
+            String key = getWeightKey(instance);
+            if (!currentWeights.containsKey(key)) {
+                currentWeights.put(key, 0.0);
+            }
+        }
+
+        // Step 1: Add original weight to current weight for all instances
+        double totalWeight = 0;
+        for (ServiceInstance instance : instances) {
+            String key = getWeightKey(instance);
+            double weight = getWeight(instance);
+            currentWeights.put(key, currentWeights.get(key) + weight);
+            totalWeight += weight;
+        }
+
+        // Step 2: Select instance with maximum current weight
+        ServiceInstance selected = null;
+        double maxCurrentWeight = -1;
+        
+        for (ServiceInstance instance : instances) {
+            String key = getWeightKey(instance);
+            double currentWeight = currentWeights.get(key);
+            if (currentWeight > maxCurrentWeight) {
+                maxCurrentWeight = currentWeight;
+                selected = instance;
+            }
+        }
+
+        // Step 3: Subtract total weight from selected instance's current weight
+        if (selected != null) {
+            String key = getWeightKey(selected);
+            currentWeights.put(key, currentWeights.get(key) - totalWeight);
+            log.debug("Selected {}:{} with current weight={:.2f}, total weight={}", 
+                    selected.getHost(), selected.getPort(), maxCurrentWeight, totalWeight);
+        }
+
+        return selected;
+    }
+
+    /**
+     * Get unique key for an instance
+     */
+    private String getWeightKey(ServiceInstance instance) {
+        return instance.getHost() + ":" + instance.getPort();
+    }
+
+    /**
+     * Get weight from instance metadata
+     */
+    private double getWeight(ServiceInstance instance) {
+        // Try multiple possible keys for weight
+        String weightStr = instance.getMetadata().get("weight");
+        
+        // Fallback to Nacos dynamic discovery key
+        if (weightStr == null) {
+            weightStr = instance.getMetadata().get("nacos.weight");
+        }
+        
+        // Default to 1.0 if not found
+        try {
+            return weightStr != null ? Double.parseDouble(weightStr) : 1.0;
+        } catch (NumberFormatException e) {
+            log.warn("Invalid weight '{}' for instance {}, using default 1.0", 
+                    weightStr, getWeightKey(instance));
+            return 1.0;
+        }
     }
 
     /**

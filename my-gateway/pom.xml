@@ -43,11 +43,13 @@
             <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
         </dependency>
 
-        <!-- Nacos Config -->
+        <!-- Nacos Config removed: my-gateway pulls config manually via NacosConfigService -->
+        <!--
         <dependency>
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
         </dependency>
+        -->
 
         <!-- Spring Cloud Consul -->
         <dependency>

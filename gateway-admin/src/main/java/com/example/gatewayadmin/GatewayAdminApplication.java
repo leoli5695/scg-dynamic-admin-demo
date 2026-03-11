@@ -18,8 +18,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
  */
 @EnableAsync
 @SpringBootApplication
+@EnableTransactionManagement
 @EnableConfigurationProperties(GatewayAdminProperties.class)
-@EnableTransactionManagement  // Enable transaction management for database operations
 public class GatewayAdminApplication {
 
     public static void main(String[] args) {

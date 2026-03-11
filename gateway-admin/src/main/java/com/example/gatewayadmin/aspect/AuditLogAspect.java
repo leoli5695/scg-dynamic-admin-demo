@@ -37,8 +37,8 @@ public class AuditLogAspect {
      * Record start time before method execution.
      */
     @Before("execution(* com.example.gatewayadmin.controller..*.*(..)) && " +
-            "(args(..,org.springframework.web.bind.annotation.RequestBody..) || " +
-            " args(..,org.springframework.web.bind.annotation.PathVariable..))")
+            "(args(..,org.springframework.web.bind.annotation.RequestBody) || " +
+            " args(..,org.springframework.web.bind.annotation.PathVariable))")
     public void before(JoinPoint joinPoint) {
         startTime.set(System.currentTimeMillis());
     }
@@ -96,9 +96,15 @@ public class AuditLogAspect {
             // Record asynchronously
             auditLogService.recordAuditLog(operator, operationType, targetType, targetId, ipAddress);
 
-            log.info("Audit: {} {} {} by {} in {}ms",
-                    operationType, targetType, targetId, operator,
-                    System.currentTimeMillis() - startTime.get());
+            // Calculate execution time safely
+            Long start = startTime.get();
+            if (start != null) {
+                log.info("Audit: {} {} {} by {} in {}ms",
+                        operationType, targetType, targetId, operator,
+                        System.currentTimeMillis() - start);
+            } else {
+                log.info("Audit: {} {} {} by {}", operationType, targetType, targetId, operator);
+            }
         } catch (Exception ex) {
             log.error("Failed to record audit log", ex);
         } finally {
@@ -114,14 +120,17 @@ public class AuditLogAspect {
             return "FAILED";
         }
 
-        if (methodName.startsWith("create") || methodName.startsWith("add")) {
+        if (methodName.startsWith("create") || methodName.startsWith("add") ||
+                methodName.startsWith("register") || methodName.startsWith("save")) {
             return "CREATE";
-        } else if (methodName.startsWith("update") || methodName.startsWith("modify")) {
+        } else if (methodName.startsWith("update") || methodName.startsWith("modify") ||
+                methodName.startsWith("edit")) {
             return "UPDATE";
-        } else if (methodName.startsWith("delete") || methodName.startsWith("remove")) {
+        } else if (methodName.startsWith("delete") || methodName.startsWith("remove") ||
+                methodName.startsWith("deregister")) {
             return "DELETE";
         } else if (methodName.startsWith("get") || methodName.startsWith("list") ||
-                methodName.startsWith("query")) {
+                methodName.startsWith("query") || methodName.startsWith("getAll")) {
             return "READ";
         }
         return "OTHER";

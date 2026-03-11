@@ -1,42 +1,30 @@
 package com.example.gateway.manager;
 
+import com.example.gateway.cache.GenericCacheManager;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.atomic.AtomicReference;
-
 /**
- * Route configuration manager.
- * Responsible for loading, caching and managing route configurations.
+ * Route configuration manager (uses GenericCacheManager).
  */
 @Slf4j
 @Component
 public class RouteManager {
 
-    private volatile long lastLoadTime = 0;
-    private static final long CACHE_TTL_MS = 10000;
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final AtomicReference<JsonNode> routeConfigCache = new AtomicReference<>();
-
+    private static final String CACHE_KEY = "routes";
+    
+    @Autowired
+    private GenericCacheManager<JsonNode> cacheManager;
+    
     /**
      * Load and cache route configuration.
      *
      * @param config Route configuration JSON string
      */
     public void loadConfig(String config) {
-        try {
-            JsonNode root = objectMapper.readTree(config);
-            routeConfigCache.set(root);
-            lastLoadTime = System.currentTimeMillis();
-
-            int routeCount = countRoutes(root);
-            log.info("Route configuration loaded: {} routes", routeCount);
-        } catch (Exception e) {
-            log.error("Failed to load route configuration", e);
-            throw new RuntimeException("Failed to parse route config", e);
-        }
+        cacheManager.loadConfig(CACHE_KEY, config);
     }
 
     /**
@@ -45,31 +33,32 @@ public class RouteManager {
      * @return Cached route configuration, or null if not loaded
      */
     public JsonNode getCachedConfig() {
-        return routeConfigCache.get();
+        return cacheManager.getCachedConfig(CACHE_KEY);
     }
 
     /**
      * Check if cache is valid.
      *
-     * @return true if cache is valid and not expired
+     * @return true if cache is loaded and not expired
      */
     public boolean isCacheValid() {
-        JsonNode config = routeConfigCache.get();
-        if (config == null) {
-            return false;
-        }
+        return cacheManager.isCacheValid(CACHE_KEY);
+    }
 
-        long now = System.currentTimeMillis();
-        return (now - lastLoadTime) < CACHE_TTL_MS;
+    /**
+     * Get fallback configuration (last valid config from Nacos).
+     *
+     * @return Last valid configuration, or null if never loaded
+     */
+    public JsonNode getFallbackConfig() {
+        return cacheManager.getFallbackConfig(CACHE_KEY);
     }
 
     /**
      * Clear cached configuration.
      */
     public void clearCache() {
-        routeConfigCache.set(null);
-        lastLoadTime = 0;
-        log.info("Route configuration cache cleared");
+        cacheManager.clearCache(CACHE_KEY);
     }
 
     /**
@@ -95,14 +84,5 @@ public class RouteManager {
         }
 
         return 0;
-    }
-
-    /**
-     * Get last load time.
-     *
-     * @return Last load timestamp in milliseconds
-     */
-    public long getLastLoadTime() {
-        return lastLoadTime;
     }
 }

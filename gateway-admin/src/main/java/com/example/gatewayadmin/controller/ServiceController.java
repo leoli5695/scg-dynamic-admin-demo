@@ -1,8 +1,8 @@
 package com.example.gatewayadmin.controller;
 
-import com.example.gatewayadmin.config.NacosConfigManager;
+import com.example.gatewayadmin.center.NacosConfigCenterService;
 import com.example.gatewayadmin.model.ServiceDefinition;
-import com.example.gatewayadmin.service.ServiceManager;
+import com.example.gatewayadmin.service.ServiceService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -23,10 +23,10 @@ import java.util.Map;
 public class ServiceController {
 
     @Autowired
-    private ServiceManager serviceManager;
+    private ServiceService serviceManager;
 
     @Autowired
-    private NacosConfigManager nacosConfigManager;
+    private NacosConfigCenterService nacosConfigCenterService;
 
     /**
      * Get all services.
@@ -64,9 +64,9 @@ public class ServiceController {
      * Register a service.
      */
     @PostMapping
-    public ResponseEntity<Map<String, Object>> registerService(@RequestBody ServiceDefinition service) {
-        log.info("Registering service: {}", service.getName());
-        boolean success = serviceManager.registerService(service);
+    public ResponseEntity<Map<String, Object>> createService(@RequestBody ServiceDefinition service) {
+        log.info("Creating service: {}", service.getName());
+        boolean success = serviceManager.createService(service);
         Map<String, Object> result = new HashMap<>();
         if (success) {
             result.put("code", 200);
@@ -190,7 +190,7 @@ public class ServiceController {
      */
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getServiceStats() {
-        ServiceManager.ServiceStats stats = serviceManager.getServiceStats();
+        ServiceService.ServiceStats stats = serviceManager.getServiceStats();
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("message", "success");
@@ -203,7 +203,7 @@ public class ServiceController {
      */
     @GetMapping("/nacos-discovery")
     public ResponseEntity<Map<String, Object>> getNacosDiscoveryServices() {
-        List<String> services = nacosConfigManager.getDiscoveryServiceNames();
+        List<String> services = nacosConfigCenterService.getDiscoveryServiceNames();
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("message", "success");

@@ -46,12 +46,15 @@ public class TraceIdGlobalFilter implements GlobalFilter, Ordered {
 
         // Continue the filter chain with the mutated exchange
         return chain.filter(mutatedExchange)
+                .doOnSuccess(aVoid -> {
+                    // Add trace ID to response headers before response is committed
+                    if (!exchange.getResponse().isCommitted()) {
+                        exchange.getResponse().getHeaders().add(TRACE_ID_HEADER, traceId);
+                    }
+                })
                 .doFinally(signalType -> {
                     // Clear MDC after request completes
                     MDC.clear();
-
-                    // Add trace ID to response headers
-                    exchange.getResponse().getHeaders().add(TRACE_ID_HEADER, traceId);
                 });
     }
 

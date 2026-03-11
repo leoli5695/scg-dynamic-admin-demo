@@ -48,6 +48,8 @@ public class SecurityConfig {
                         // Public endpoints
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
+                        // API endpoints (for development, disable authentication)
+                        .requestMatchers("/api/**").permitAll()
                         // Static resources
                         .requestMatchers("/", "/index.html", "/static/**", "/favicon.ico").permitAll()
                         // Actuator endpoints

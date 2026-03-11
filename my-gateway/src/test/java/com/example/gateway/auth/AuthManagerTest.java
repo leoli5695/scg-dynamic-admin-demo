@@ -1,16 +1,17 @@
 package com.example.gateway.auth;
 
+import com.example.gateway.model.AuthConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit tests for AuthManager.
+ * Unit tests for AuthProcessManager.
  */
 class AuthManagerTest {
 
-    private AuthManager authManager;
+    private AuthProcessManager authManager;
 
     @BeforeEach
     void setUp() {
@@ -18,7 +19,7 @@ class AuthManagerTest {
         JwtAuthProcessor jwtProcessor = new JwtAuthProcessor();
         ApiKeyAuthProcessor apiKeyProcessor = new ApiKeyAuthProcessor();
         
-        authManager = new AuthManager(java.util.Arrays.asList(jwtProcessor, apiKeyProcessor));
+        authManager = new AuthProcessManager(java.util.Arrays.asList(jwtProcessor, apiKeyProcessor));
     }
 
     @Test

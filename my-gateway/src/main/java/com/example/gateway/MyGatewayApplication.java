@@ -5,10 +5,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @EnableScheduling
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = {"com.example.gateway"})
 public class MyGatewayApplication {
 
     public static void main(String[] args) {
+        System.setProperty("debug", "true");
         SpringApplication.run(MyGatewayApplication.class, args);
     }
 }

@@ -1,7 +1,5 @@
 package com.example.gatewayadmin.center;
 
-import com.example.gatewayadmin.listener.ConfigChangeListener;
-
 /**
  * Unified Config Center Service interface.
  * Supports both Nacos and Consul backends.
@@ -15,7 +13,7 @@ public interface ConfigCenterService {
      *
      * @param dataId configuration data ID
      * @param type   target class type
-     * @param <T>   configuration type
+     * @param <T>    configuration type
      * @return configuration object, or null if not found
      */
     <T> T getConfig(String dataId, Class<T> type);
@@ -36,21 +34,6 @@ public interface ConfigCenterService {
      * @return true if removed successfully, false otherwise
      */
     boolean removeConfig(String dataId);
-
-    /**
-     * Add configuration change listener.
-     *
-     * @param dataId  configuration data ID
-     * @param listener listener callback
-     */
-    void addListener(String dataId, ConfigChangeListener listener);
-
-    /**
-     * Remove configuration change listener.
-     *
-     * @param dataId configuration data ID
-     */
-    void removeListener(String dataId);
 
     /**
      * Get config center type name.

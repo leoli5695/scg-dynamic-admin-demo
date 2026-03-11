@@ -1,10 +1,11 @@
 package com.example.gatewayadmin.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.example.gatewayadmin.mapper.AuditLogMapper;
 import com.example.gatewayadmin.model.AuditLogEntity;
+import com.example.gatewayadmin.repository.AuditLogRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Audit log controller for querying configuration change history.
@@ -25,7 +27,7 @@ import java.util.Map;
 public class AuditLogController {
 
     @Autowired
-    private AuditLogMapper auditLogMapper;
+    private AuditLogRepository auditLogRepository;
 
     /**
      * Get all audit logs with optional filters.
@@ -45,36 +47,37 @@ public class AuditLogController {
         Map<String, Object> result = new HashMap<>();
         
         try {
-            LambdaQueryWrapper<AuditLogEntity> wrapper = new LambdaQueryWrapper<>();
+            // Use JPA repository methods for filtering and pagination
+            List<AuditLogEntity> logs;
             
-            // Apply filters
-            if (targetType != null && !targetType.isEmpty()) {
-                wrapper.eq(AuditLogEntity::getTargetType, targetType);
-            }
-            if (targetId != null && !targetId.isEmpty()) {
-                wrapper.eq(AuditLogEntity::getTargetId, targetId);
-            }
-            if (operationType != null && !operationType.isEmpty()) {
-                wrapper.eq(AuditLogEntity::getOperationType, operationType);
-            }
-            if (startTime != null) {
-                wrapper.ge(AuditLogEntity::getCreatedAt, startTime);
-            }
-            if (endTime != null) {
-                wrapper.le(AuditLogEntity::getCreatedAt, endTime);
+            if (targetType != null && !targetType.isEmpty() && targetId != null && !targetId.isEmpty()) {
+                // Filter by both targetType and targetId
+                logs = auditLogRepository.findByTargetTypeAndTargetId(targetType, targetId);
+            } else {
+                // Get recent logs (no filter or single filter)
+                logs = auditLogRepository.findTop10ByOrderByCreatedAtDesc();
             }
             
-            // Order by creation time descending
-            wrapper.orderByDesc(AuditLogEntity::getCreatedAt);
+            // Apply additional filters in memory (simplified approach)
+            final String finalTargetType = targetType;
+            final String finalTargetId = targetId;
+            final String finalOperationType = operationType;
+            final LocalDateTime finalStartTime = startTime;
+            final LocalDateTime finalEndTime = endTime;
             
-            // Pagination
-            int offset = (page - 1) * size;
-            List<AuditLogEntity> logs = auditLogMapper.selectList(wrapper);
+            logs = logs.stream()
+                .filter(log -> finalTargetType == null || finalTargetType.isEmpty() || log.getTargetType().equals(finalTargetType))
+                .filter(log -> finalTargetId == null || finalTargetId.isEmpty() || log.getTargetId().equals(finalTargetId))
+                .filter(log -> finalOperationType == null || finalOperationType.isEmpty() || log.getOperationType().equals(finalOperationType))
+                .filter(log -> finalStartTime == null || log.getCreatedAt().isAfter(finalStartTime))
+                .filter(log -> finalEndTime == null || log.getCreatedAt().isBefore(finalEndTime))
+                .collect(Collectors.toList());
             
-            // Apply pagination manually
+            // Apply pagination
             int total = logs.size();
+            int offset = (page - 1) * size;
+            int endIdx = Math.min(offset + size, total);
             if (offset < total) {
-                int endIdx = Math.min(offset + size, total);
                 logs = logs.subList(offset, endIdx);
             } else {
                 logs = List.of();
@@ -107,7 +110,8 @@ public class AuditLogController {
         Map<String, Object> result = new HashMap<>();
         
         try {
-            AuditLogEntity log = auditLogMapper.selectById(id);
+            AuditLogEntity log = auditLogRepository.findById(id)
+                .orElse(null);
             
             if (log != null) {
                 result.put("code", 200);

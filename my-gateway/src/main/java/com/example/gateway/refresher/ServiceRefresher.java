@@ -40,16 +40,59 @@ public class ServiceRefresher extends AbstractRefresher {
      */
     @PostConstruct
     public void init() {
+        log.info("=========================================");
+        log.info("ServiceRefresher @PostConstruct starting...");
+        log.info("ServiceManager available: {}", serviceManager != null);
+        log.info("ConfigService available: {}", configService != null);
+
         // Register listener to Nacos config center
         ConfigCenterService.ConfigListener listener = (dataId, group, newContent) -> {
-            log.info("Service config changed detected: {}", dataId);
-            onConfigChange(dataId, newContent);
+            log.info("Service config change detected: {}, content={}", dataId,
+                    newContent == null ? "null" : (newContent.isBlank() ? "empty" : "has content"));
+            if (newContent == null || newContent.isBlank()) {
+                log.warn("Service config deleted or empty, clearing cache");
+                clearCache();
+            } else {
+                onConfigChange(dataId, newContent);
+            }
         };
         configService.addListener(DATA_ID, GROUP, listener);
         log.info("ServiceRefresher registered listener for {}", DATA_ID);
 
         // Load initial configuration
         loadInitialConfig();
+
+        // Warmup: proactively sync from Nacos on startup
+        warmupCache();
+
+        log.info("ServiceRefresher @PostConstruct completed");
+        log.info("=========================================");
+    }
+
+    /**
+     * Warmup cache on startup to ensure services are available immediately.
+     */
+    private void warmupCache() {
+        log.info("🔥 Warming up service cache on startup...");
+        try {
+            reloadConfigFromNacos();
+            log.info("✅ Service cache warmed up successfully");
+        } catch (Exception e) {
+            log.warn("⚠️  Service cache warmup failed, will load on first request: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Clear service cache when configuration is deleted
+     */
+    private void clearCache() {
+        try {
+            // Clear ServiceManager cache
+            serviceManager.clearCache();
+            log.info("Service cache cleared successfully");
+        } catch (Exception e) {
+            log.error("Failed to clear service cache: {}", e.getMessage(), e);
+        }
     }
 
     /**
@@ -79,6 +122,27 @@ public class ServiceRefresher extends AbstractRefresher {
             }
         } catch (Exception e) {
             log.error("Failed to load initial service configuration: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Reload configuration from Nacos manually (fallback when cache is invalid)
+     */
+    public void reloadConfigFromNacos() {
+        log.info("Manually reloading service configuration from Nacos");
+        try {
+            String config = configService.getConfig(DATA_ID, GROUP);
+            if (config != null && !config.isBlank()) {
+                log.info("Successfully reloaded service configuration from Nacos");
+                onConfigChange(DATA_ID, config);
+            } else {
+                log.warn("No service configuration found in Nacos during manual reload");
+                // Clear ServiceManager cache
+                serviceManager.clearCache();
+            }
+        } catch (Exception e) {
+            log.error("Failed to reload service configuration from Nacos: {}", e.getMessage(), e);
+            throw e; // Re-throw to trigger retry logic
         }
     }
 
@@ -126,19 +190,20 @@ public class ServiceRefresher extends AbstractRefresher {
     }
 
     /**
-     * Validate configuration structure
+     * Validate configuration structure (supports both formats)
      */
     private void validateConfig(JsonNode root) {
-        if (!root.has("services")) {
-            log.warn("Configuration missing 'services' node");
+        if (root == null || !root.isObject()) {
+            throw new IllegalArgumentException("Service config must be a JSON object");
         }
 
-        if (root.has("services") && !root.get("services").isArray()) {
-            throw new IllegalArgumentException("'services' must be an array");
-        }
-
-        // Validate each service has required fields
+        // Check if it's the new format with "services" array
         if (root.has("services")) {
+            if (!root.get("services").isArray()) {
+                throw new IllegalArgumentException("'services' must be an array");
+            }
+
+            // Validate each service has required fields
             root.get("services").forEach(service -> {
                 if (!service.has("name")) {
                     throw new IllegalArgumentException("Service missing required 'name' field");
@@ -148,9 +213,31 @@ public class ServiceRefresher extends AbstractRefresher {
                             "' missing or invalid 'instances' field");
                 }
             });
-        }
 
-        log.debug("Service config validation passed");
+            log.debug("Validated services array format: {} services", root.get("services").size());
+        } else {
+            // Simple format: {"service-name": {"ip": "...", "port": ...}}
+            int serviceCount = 0;
+            var fieldNames = root.fieldNames();
+            while (fieldNames.hasNext()) {
+                String serviceName = fieldNames.next();
+                JsonNode serviceNode = root.get(serviceName);
+
+                if (!serviceNode.isObject()) {
+                    throw new IllegalArgumentException("Service '" + serviceName +
+                            "' configuration must be an object");
+                }
+
+                if (!serviceNode.has("ip") || !serviceNode.has("port")) {
+                    throw new IllegalArgumentException("Service '" + serviceName +
+                            "' missing required 'ip' or 'port' field");
+                }
+
+                serviceCount++;
+            }
+
+            log.debug("Validated simple format: {} services", serviceCount);
+        }
     }
 
     /**
@@ -177,8 +264,7 @@ public class ServiceRefresher extends AbstractRefresher {
                     boolean enabled = instance.has("enabled") ? instance.get("enabled").asBoolean(true) : true;
                     double weight = instance.has("weight") ? instance.get("weight").asDouble(1.0) : 1.0;
 
-                    log.debug("    Instance: {}:{} (weight={}, healthy={}, enabled={})",
-                            ip, port, weight, healthy, enabled);
+                    log.info("    Instance: {}:{} (weight={}, healthy={}, enabled={})", ip, port, weight, healthy, enabled);
                 });
             }
         });
