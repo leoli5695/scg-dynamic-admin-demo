@@ -28,8 +28,8 @@ import java.util.stream.Collectors;
 @Service
 public class RouteService {
 
-  private static final String ROUTE_PREFIX = "config/gateway/routes/route-";
-  private static final String ROUTES_INDEX = "config/gateway/metadata/routes-index";
+  private static final String ROUTE_PREFIX = "config.gateway.routes.route-";
+  private static final String ROUTES_INDEX = "config.gateway.metadata.routes-index";
   private static final String GROUP = "DEFAULT_GROUP";
   
   private final ObjectMapper objectMapper = new ObjectMapper();

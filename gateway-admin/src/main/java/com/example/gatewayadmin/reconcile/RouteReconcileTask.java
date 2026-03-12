@@ -20,8 +20,8 @@ import java.util.stream.Collectors;
 @Component
 public class RouteReconcileTask implements ReconcileTask<RouteEntity> {
     
-    private static final String ROUTE_PREFIX = "config/gateway/routes/route-";
-    private static final String ROUTES_INDEX = "config/gateway/metadata/routes-index";
+    private static final String ROUTE_PREFIX = "config.gateway.routes.route-";
+    private static final String ROUTES_INDEX = "config.gateway.metadata.routes-index";
     private static final String GROUP = "DEFAULT_GROUP";
     
     @Autowired

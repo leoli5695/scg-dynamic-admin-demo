@@ -20,8 +20,8 @@ import java.util.stream.Collectors;
 @Component
 public class ServiceReconcileTask implements ReconcileTask<ServiceEntity> {
     
-    private static final String SERVICE_PREFIX = "config/gateway/services/service-";
-    private static final String SERVICES_INDEX = "config/gateway/metadata/services-index";
+    private static final String SERVICE_PREFIX = "config.gateway.services.service-";
+    private static final String SERVICES_INDEX = "config.gateway.metadata.services-index";
     private static final String GROUP = "DEFAULT_GROUP";
     
     @Autowired
