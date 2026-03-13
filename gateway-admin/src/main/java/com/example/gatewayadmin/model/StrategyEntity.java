@@ -18,23 +18,30 @@ import java.time.LocalDateTime;
 public class StrategyEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private String id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
     
-    @Column(name = "strategy_type", nullable = false, length = 100)
-    private String strategyType;
+    /**
+     * Business strategy name (e.g., "user-route-rate-limiter"), used to identify this strategy.
+     */
+    @Column(name = "strategy_name", nullable = false, unique = true, length = 255)
+    private String strategyName;
     
-    @Column(name = "route_id", length = 255)
-    private String routeId;
+    /**
+     * Strategy ID (UUID), kept for backward compatibility.
+     */
+    @Column(name = "strategy_id", length = 255)
+    private String strategyId;
     
+    /**
+     * Complete configuration as JSON backup.
+     * Contains: type, routeId, config, priority, etc.
+     */
     @Column(nullable = false, columnDefinition = "TEXT")
-    private String config;
+    private String metadata;
     
     @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
     private Boolean enabled;
-    
-    @Column
-    private Integer priority;
     
     @Column(length = 500)
     private String description;

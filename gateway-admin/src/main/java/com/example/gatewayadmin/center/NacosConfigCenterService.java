@@ -94,6 +94,28 @@ public class NacosConfigCenterService implements ConfigCenterService {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
+    public <T> T getConfig(String dataId, com.fasterxml.jackson.core.type.TypeReference<T> typeReference) {
+        try {
+            String content = configService.getConfig(dataId, group, 5000);
+            if (content == null || content.trim().isEmpty()) {
+                log.debug("No configuration found for dataId: {}", dataId);
+                return null;
+            }
+
+            T config = objectMapper.readValue(content, typeReference);
+            log.debug("Loaded configuration from Nacos: dataId={}, type={}", dataId, typeReference.getClass().getSimpleName());
+            return config;
+        } catch (NacosException ex) {
+            log.error("Failed to get configuration from Nacos: dataId={}, error={}", dataId, ex.getMessage(), ex);
+            throw new RuntimeException("Failed to get config from Nacos: " + dataId, ex);
+        } catch (Exception ex) {
+            log.error("Failed to parse configuration JSON: dataId={}, error={}", dataId, ex.getMessage(), ex);
+            throw new RuntimeException("Failed to parse config JSON: " + dataId, ex);
+        }
+    }
+
+    @Override
     public boolean publishConfig(String dataId, Object config) {
         try {
             String content = objectMapper.writeValueAsString(config);
@@ -126,6 +148,19 @@ public class NacosConfigCenterService implements ConfigCenterService {
         } catch (NacosException ex) {
             log.error("Failed to remove configuration from Nacos: dataId={}, error={}", dataId, ex.getMessage(), ex);
             throw new RuntimeException("Failed to remove config from Nacos: " + dataId, ex);
+        }
+    }
+
+    @Override
+    public boolean configExists(String dataId) {
+        try {
+            String content = configService.getConfig(dataId, group, 3000);
+            boolean exists = content != null && !content.trim().isEmpty();
+            log.debug("Configuration {} in Nacos: dataId={}", exists ? "exists" : "not found", dataId);
+            return exists;
+        } catch (NacosException ex) {
+            log.error("Failed to check configuration in Nacos: dataId={}, error={}", dataId, ex.getMessage(), ex);
+            return false;
         }
     }
 

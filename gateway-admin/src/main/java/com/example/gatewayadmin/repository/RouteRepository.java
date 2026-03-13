@@ -20,12 +20,12 @@ public interface RouteRepository extends JpaRepository<RouteEntity, Long> {
     RouteEntity findByRouteName(String routeName);
     
     /**
+     * Find route by route_id (UUID).
+     */
+    RouteEntity findByRouteId(String routeId);
+    
+    /**
      * Find all enabled routes.
      */
     List<RouteEntity> findByEnabledTrue();
-    
-    /**
-     * Find routes by order.
-     */
-    List<RouteEntity> findAllByOrderByOrderNumAsc();
 }

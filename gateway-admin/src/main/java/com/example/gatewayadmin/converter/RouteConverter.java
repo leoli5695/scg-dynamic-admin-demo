@@ -29,26 +29,16 @@ public class RouteConverter {
         RouteEntity entity = new RouteEntity();
         // Don't set ID - let database auto-generate it
         entity.setRouteName(route.getId());  // Use route ID as business route name
-        entity.setUri(route.getUri() != null ? route.getUri().toString() : null);
         
-        // Convert predicates to JSON string
-        if (route.getPredicates() != null && !route.getPredicates().isEmpty()) {
-            entity.setPredicates(convertToJson(route.getPredicates()));
+        // Store complete configuration in metadata field
+        try {
+            String configJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(route);
+            entity.setMetadata(configJson);
+        } catch (Exception e) {
+            log.warn("Failed to serialize route config to JSON", e);
         }
         
-        // Convert filters to JSON string
-        if (route.getFilters() != null && !route.getFilters().isEmpty()) {
-            entity.setFilters(convertToJson(route.getFilters()));
-        }
-        
-        // Convert metadata to JSON string
-        if (route.getMetadata() != null && !route.getMetadata().isEmpty()) {
-            entity.setMetadata(convertToJson(route.getMetadata()));
-        }
-        
-        entity.setOrderNum(route.getOrder());
         entity.setEnabled(true); // Default to enabled
-        entity.setDescription((route.getMetadata() != null) ? (String) route.getMetadata().get("description") : null);
         entity.setCreatedAt(LocalDateTime.now());
         entity.setUpdatedAt(LocalDateTime.now());
 
@@ -63,36 +53,22 @@ public class RouteConverter {
             return null;
         }
 
-        RouteDefinition route = new RouteDefinition();
-        route.setId(entity.getRouteName());  // Use routeName as the business ID
-        
-        if (entity.getUri() != null && !entity.getUri().isEmpty()) {
-            route.setUri(entity.getUri());
-        }
-        
-        // Convert predicates from JSON string
-        if (entity.getPredicates() != null && !entity.getPredicates().isEmpty()) {
-            route.setPredicates(convertFromJson(entity.getPredicates(), List.class));
-        } else {
-            route.setPredicates(new ArrayList<>());
-        }
-        
-        // Convert filters from JSON string
-        if (entity.getFilters() != null && !entity.getFilters().isEmpty()) {
-            route.setFilters(convertFromJson(entity.getFilters(), List.class));
-        } else {
-            route.setFilters(new ArrayList<>());
-        }
-        
-        // Convert metadata from JSON string
+        // Try to restore from metadata JSON first
         if (entity.getMetadata() != null && !entity.getMetadata().isEmpty()) {
-            route.setMetadata(convertFromJson(entity.getMetadata(), java.util.Map.class));
-        } else {
-            route.setMetadata(new java.util.HashMap<>());
+            try {
+                RouteDefinition route = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readValue(entity.getMetadata(), RouteDefinition.class);
+                if (route != null) {
+                    return route;
+                }
+            } catch (Exception e) {
+                log.warn("Failed to deserialize route config from JSON, using fallback", e);
+            }
         }
         
-        route.setOrder(entity.getOrderNum() != null ? entity.getOrderNum() : 0);
-
+        // Fallback: create minimal definition
+        RouteDefinition route = new RouteDefinition();
+        route.setId(entity.getRouteName());
         return route;
     }
 

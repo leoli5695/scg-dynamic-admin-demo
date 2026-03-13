@@ -61,21 +61,50 @@ public class ServiceController {
     }
 
     /**
+     * Check if service is referenced by routes.
+     */
+    @GetMapping("/{name}/usage")
+    public ResponseEntity<Map<String, Object>> checkServiceUsage(@PathVariable String name) {
+        try {
+            List<String> referencingRoutes = serviceManager.checkServiceUsage(name);
+            Map<String, Object> result = new HashMap<>();
+            result.put("code", 200);
+            result.put("message", "success");
+            result.put("data", referencingRoutes);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Failed to check service usage", e);
+            Map<String, Object> result = new HashMap<>();
+            result.put("code", 500);
+            result.put("message", "Failed to check service usage: " + e.getMessage());
+            return ResponseEntity.status(500).body(result);
+        }
+    }
+
+    /**
      * Register a service.
      */
     @PostMapping
     public ResponseEntity<Map<String, Object>> createService(@RequestBody ServiceDefinition service) {
-        log.info("Creating service: {}", service.getName());
-        boolean success = serviceManager.createService(service);
-        Map<String, Object> result = new HashMap<>();
-        if (success) {
+        try {
+            log.info("Creating service: {}", service.getName());
+            serviceManager.createService(service);
+            Map<String, Object> result = new HashMap<>();
             result.put("code", 200);
             result.put("message", "Service registered successfully");
             result.put("data", service);
             return ResponseEntity.ok(result);
-        } else {
+        } catch (IllegalArgumentException e) {
+            log.warn("Failed to create service: {}", e.getMessage());
+            Map<String, Object> result = new HashMap<>();
+            result.put("code", 400);
+            result.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(result);
+        } catch (Exception e) {
+            log.error("Failed to create service", e);
+            Map<String, Object> result = new HashMap<>();
             result.put("code", 500);
-            result.put("message", "Failed to register service");
+            result.put("message", "Failed to create service: " + e.getMessage());
             return ResponseEntity.status(500).body(result);
         }
     }
@@ -86,18 +115,26 @@ public class ServiceController {
     @PutMapping("/{name}")
     public ResponseEntity<Map<String, Object>> updateService(@PathVariable String name,
                                                              @RequestBody ServiceDefinition service) {
-        log.info("Updating service: {}", name);
-        boolean success = serviceManager.updateService(name, service);
-        Map<String, Object> result = new HashMap<>();
-        if (success) {
+        try {
+            log.info("Updating service: {}", name);
+            serviceManager.updateService(name, service);
+            Map<String, Object> result = new HashMap<>();
             result.put("code", 200);
             result.put("message", "Service updated successfully");
             result.put("data", service);
             return ResponseEntity.ok(result);
-        } else {
+        } catch (IllegalArgumentException e) {
+            log.warn("Failed to update service: {}", e.getMessage());
+            Map<String, Object> result = new HashMap<>();
             result.put("code", 404);
-            result.put("message", "Service not found: " + name);
+            result.put("message", e.getMessage());
             return ResponseEntity.status(404).body(result);
+        } catch (Exception e) {
+            log.error("Failed to update service", e);
+            Map<String, Object> result = new HashMap<>();
+            result.put("code", 500);
+            result.put("message", "Failed to update service: " + e.getMessage());
+            return ResponseEntity.status(500).body(result);
         }
     }
 
@@ -106,64 +143,59 @@ public class ServiceController {
      */
     @DeleteMapping("/{name}")
     public ResponseEntity<Map<String, Object>> deleteService(@PathVariable String name) {
-        log.info("Deleting service: {}", name);
-        boolean success = serviceManager.deleteService(name);
-        Map<String, Object> result = new HashMap<>();
-        if (success) {
+        try {
+            log.info("Deleting service: {}", name);
+            serviceManager.deleteService(name);
+            Map<String, Object> result = new HashMap<>();
             result.put("code", 200);
             result.put("message", "Service deleted successfully");
             return ResponseEntity.ok(result);
-        } else {
+        } catch (IllegalArgumentException e) {
+            log.warn("Failed to delete service: {}", e.getMessage());
+            Map<String, Object> result = new HashMap<>();
+            result.put("code", 404);
+            result.put("message", e.getMessage());
+            return ResponseEntity.status(404).body(result);
+        } catch (Exception e) {
+            log.error("Failed to delete service", e);
+            Map<String, Object> result = new HashMap<>();
             result.put("code", 500);
-            result.put("message", "Failed to delete service");
+            result.put("message", "Failed to delete service: " + e.getMessage());
             return ResponseEntity.status(500).body(result);
         }
     }
 
     /**
      * Add a service instance.
+     * TODO: Implement in future version
      */
     @PostMapping("/{name}/instances")
     public ResponseEntity<Map<String, Object>> addServiceInstance(
             @PathVariable String name,
             @RequestBody ServiceDefinition.ServiceInstance instance) {
-        log.info("Adding instance to service {}: {}:{}", name, instance.getIp(), instance.getPort());
-        boolean success = serviceManager.addServiceInstance(name, instance);
         Map<String, Object> result = new HashMap<>();
-        if (success) {
-            result.put("code", 200);
-            result.put("message", "Instance added successfully");
-            return ResponseEntity.ok(result);
-        } else {
-            result.put("code", 404);
-            result.put("message", "Service not found: " + name);
-            return ResponseEntity.status(404).body(result);
-        }
+        result.put("code", 501);
+        result.put("message", "Not implemented yet: addServiceInstance");
+        return ResponseEntity.status(501).body(result);
     }
 
     /**
      * Remove a service instance.
+     * TODO: Implement in future version
      */
     @DeleteMapping("/{name}/instances/{instanceId}")
     public ResponseEntity<Map<String, Object>> removeServiceInstance(
             @PathVariable String name,
             @PathVariable String instanceId) {
-        log.info("Removing instance {} from service {}", instanceId, name);
-        boolean success = serviceManager.removeServiceInstance(name, instanceId);
         Map<String, Object> result = new HashMap<>();
-        if (success) {
-            result.put("code", 200);
-            result.put("message", "Instance removed successfully");
-            return ResponseEntity.ok(result);
-        } else {
-            result.put("code", 500);
-            result.put("message", "Failed to remove instance");
-            return ResponseEntity.status(500).body(result);
-        }
+        result.put("code", 501);
+        result.put("message", "Not implemented yet: removeServiceInstance");
+        return ResponseEntity.status(501).body(result);
     }
 
     /**
      * Update service instance status (healthy/enabled).
+     * TODO: Implement in future version
      */
     @PutMapping("/{name}/instances/{instanceId}/status")
     public ResponseEntity<Map<String, Object>> updateInstanceStatus(
@@ -171,31 +203,22 @@ public class ServiceController {
             @PathVariable String instanceId,
             @RequestParam boolean healthy,
             @RequestParam boolean enabled) {
-        log.info("Updating instance {} status: healthy={}, enabled={}", instanceId, healthy, enabled);
-        boolean success = serviceManager.updateInstanceStatus(name, instanceId, healthy, enabled);
         Map<String, Object> result = new HashMap<>();
-        if (success) {
-            result.put("code", 200);
-            result.put("message", "Instance status updated successfully");
-            return ResponseEntity.ok(result);
-        } else {
-            result.put("code", 404);
-            result.put("message", "Service or instance not found");
-            return ResponseEntity.status(404).body(result);
-        }
+        result.put("code", 501);
+        result.put("message", "Not implemented yet: updateInstanceStatus");
+        return ResponseEntity.status(501).body(result);
     }
 
     /**
      * Get service statistics.
+     * TODO: Implement in future version
      */
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getServiceStats() {
-        ServiceService.ServiceStats stats = serviceManager.getServiceStats();
         Map<String, Object> result = new HashMap<>();
-        result.put("code", 200);
-        result.put("message", "success");
-        result.put("data", stats);
-        return ResponseEntity.ok(result);
+        result.put("code", 501);
+        result.put("message", "Not implemented yet: getServiceStats");
+        return ResponseEntity.status(501).body(result);
     }
 
     /**

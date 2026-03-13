@@ -64,11 +64,13 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Thymeleaf -->
+        <!-- Thymeleaf - Removed: Frontend now uses gateway-ui -->
+        <!--
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-thymeleaf</artifactId>
         </dependency>
+        -->
 
         <!-- Nacos Config - Commented out as gateway-admin uses local YAML config -->
         <!--

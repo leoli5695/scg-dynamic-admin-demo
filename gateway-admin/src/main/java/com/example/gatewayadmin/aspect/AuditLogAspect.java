@@ -145,8 +145,8 @@ public class AuditLogAspect {
             return "ROUTE";
         } else if (className.contains("Service")) {
             return "SERVICE";
-        } else if (className.contains("Plugin")) {
-            return "PLUGIN";
+        } else if (className.contains("Strategy")) {
+            return "STRATEGY";
         }
         return "UNKNOWN";
     }

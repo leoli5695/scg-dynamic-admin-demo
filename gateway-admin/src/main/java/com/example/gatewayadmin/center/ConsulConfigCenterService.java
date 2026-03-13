@@ -82,6 +82,30 @@ public class ConsulConfigCenterService implements ConfigCenterService {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
+    public <T> T getConfig(String dataId, com.fasterxml.jackson.core.type.TypeReference<T> typeReference) {
+        try {
+            String key = buildKey(dataId);
+            GetValue value = consulClient.getKVValue(key).getValue();
+
+            if (value == null) {
+                log.debug("No configuration found for dataId: {} (key: {})", dataId, key);
+                return null;
+            }
+
+            // Consul KV API returns value as Base64-encoded string, decode to UTF-8
+            String content = new String(Base64.getDecoder().decode(value.getValue()), StandardCharsets.UTF_8);
+            T config = objectMapper.readValue(content, typeReference);
+            log.debug("Loaded configuration from Consul: dataId={}, key={}, type={}",
+                    dataId, key, typeReference.getClass().getSimpleName());
+            return config;
+        } catch (Exception ex) {
+            log.error("Failed to get configuration from Consul: dataId={}, error={}", dataId, ex.getMessage(), ex);
+            throw new RuntimeException("Failed to get config from Consul: " + dataId, ex);
+        }
+    }
+
+    @Override
     public boolean publishConfig(String dataId, Object config) {
         try {
             String key = buildKey(dataId);
@@ -110,6 +134,20 @@ public class ConsulConfigCenterService implements ConfigCenterService {
         } catch (Exception ex) {
             log.error("Failed to remove configuration from Consul: dataId={}, error={}", dataId, ex.getMessage(), ex);
             throw new RuntimeException("Failed to remove config from Consul: " + dataId, ex);
+        }
+    }
+
+    @Override
+    public boolean configExists(String dataId) {
+        try {
+            String key = buildKey(dataId);
+            GetValue value = consulClient.getKVValue(key).getValue();
+            boolean exists = value != null;
+            log.debug("Configuration {} in Consul: key={}, dataId={}", exists ? "exists" : "not found", key, dataId);
+            return exists;
+        } catch (Exception ex) {
+            log.error("Failed to check configuration in Consul: dataId={}, error={}", dataId, ex.getMessage(), ex);
+            return false;
         }
     }
 

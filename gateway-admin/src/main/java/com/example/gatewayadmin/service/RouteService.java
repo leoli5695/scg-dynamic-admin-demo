@@ -4,6 +4,7 @@ import com.example.gatewayadmin.center.ConfigCenterService;
 import com.example.gatewayadmin.converter.RouteConverter;
 import com.example.gatewayadmin.model.RouteDefinition;
 import com.example.gatewayadmin.model.RouteEntity;
+import com.example.gatewayadmin.model.RouteResponse;
 import com.example.gatewayadmin.properties.GatewayAdminProperties;
 import com.example.gatewayadmin.repository.RouteRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,7 +30,7 @@ import java.util.stream.Collectors;
 @Service
 public class RouteService {
 
-  private static final String ROUTE_PREFIX = "config.gateway.routes.route-";
+  private static final String ROUTE_PREFIX = "config.gateway.routes-";
   private static final String ROUTES_INDEX = "config.gateway.metadata.routes-index";
   private static final String GROUP = "DEFAULT_GROUP";
   
@@ -45,32 +47,56 @@ public class RouteService {
   
   @Autowired
   private RouteConverter routeConverter;
-  
-  // Local cache
-  private final ConcurrentHashMap<String, RouteDefinition> routeCache = new ConcurrentHashMap<>();
 
   @PostConstruct
   public void init() {
-    // Load initial routes from database
+    // Load initial routes from database and sync enabled ones to Nacos
     loadRoutesFromDatabase();
     log.info("RouteService initialized with per-route Nacos storage");
   }
 
   /**
-   * Load routes from H2 database and sync to Nacos.
+   * Load routes from H2 database on startup and recover missing configs in Nacos.
+   * Only pushes to Nacos if config is missing (to avoid unnecessary Gateway refresh).
    */
   private void loadRoutesFromDatabase() {
     try {
-      List<RouteEntity> entities = routeRepository.findAllByOrderByOrderNumAsc();
+      // Load ALL routes from database (including disabled ones)
+      List<RouteEntity> entities = routeRepository.findAll();
       if (entities != null && !entities.isEmpty()) {
-        List<RouteDefinition> definitions = routeConverter.toDefinitions(entities);
-        for (RouteDefinition def : definitions) {
-          routeCache.put(def.getId(), def);
-        }
-        log.info("Loaded {} routes from database", entities.size());
+        long enabledCount = entities.stream().filter(RouteEntity::getEnabled).count();
+        long disabledCount = entities.size() - enabledCount;
         
-        // Sync all routes to Nacos on startup (for migration from old format)
-        syncAllRoutesToNacos();
+        log.info("Loaded {} routes from database ({} enabled, {} disabled)", 
+            entities.size(), enabledCount, disabledCount);
+        
+        // Check and recover only ENABLED routes that are missing in Nacos
+        int recoveredCount = 0;
+        for (RouteEntity entity : entities) {
+          if (!entity.getEnabled()) {
+            continue; // Skip disabled routes
+          }
+          
+          String routeDataId = ROUTE_PREFIX + entity.getRouteId();
+          
+          // Check if route config exists in Nacos
+          if (!configCenterService.configExists(routeDataId)) {
+            // Config is missing, recover it
+            RouteDefinition route = toDefinition(entity);
+            configCenterService.publishConfig(routeDataId, route);
+            recoveredCount++;
+            log.info("Recovered missing route in Nacos: {}", routeDataId);
+          }
+        }
+        
+        if (recoveredCount > 0) {
+          log.info("Recovered {} missing routes in Nacos on startup", recoveredCount);
+          // Update routes index after recovery
+          updateRoutesIndex(getAllRouteIds());
+        } else {
+          log.info("All enabled routes are already in Nacos, no recovery needed");
+        }
+        
       } else {
         log.info("No routes found in database (table is empty)");
       }
@@ -78,45 +104,52 @@ public class RouteService {
       log.warn("Failed to load routes from database: {}", e.getMessage());
     }
   }
-  
   /**
-   * Sync all routes from database to Nacos (per-route format).
-   * Used for initial migration or recovery.
+   * Get all routes with routeId (UUID).
    */
-  private void syncAllRoutesToNacos() {
-    log.info("Syncing all routes to Nacos...");
-    List<String> routeIds = new ArrayList<>();
-    
-    for (RouteDefinition route : routeCache.values()) {
-      String routeDataId = ROUTE_PREFIX + route.getId();
-      String routeJson = toJson(route);
-      
-      try {
-        configCenterService.publishConfig(routeDataId, routeJson);
-        routeIds.add(route.getId());
-        log.debug("Pushed route to Nacos: {}", routeDataId);
-      } catch (Exception e) {
-        log.error("Failed to push route to Nacos: {}", routeDataId, e);
-      }
-    }
-    
-    // Update routes index
-    updateRoutesIndex(routeIds);
-    log.info("Synced {} routes to Nacos", routeIds.size());
-  }
-
-  /**
-   * Get all routes
-   */
-  public List<RouteDefinition> getAllRoutes() {
-    return new ArrayList<>(routeCache.values());
+  public List<RouteResponse> getAllRoutes() {
+    // Query from database instead of cache
+    List<RouteEntity> entities = routeRepository.findAll();
+    return entities.stream()
+        .map(entity -> {
+          RouteDefinition def = toDefinition(entity);
+          RouteResponse response = new RouteResponse();
+          response.setId(entity.getRouteId());  // UUID as primary key
+          response.setRouteName(def.getId());  // route_name as business field
+          response.setUri(def.getUri());
+          response.setOrder(def.getOrder());
+          response.setPredicates(def.getPredicates());
+          response.setFilters(def.getFilters());
+          response.setMetadata(def.getMetadata());
+          response.setEnabled(entity.getEnabled());
+          response.setDescription(entity.getDescription());
+          return response;
+        })
+        .collect(java.util.stream.Collectors.toList());
   }
 
   /**
    * Get route configuration by ID
    */
   public RouteDefinition getRoute(String id) {
-    return routeCache.get(id);
+    // Query from database by route_id (UUID)
+    RouteEntity entity = routeRepository.findByRouteId(id);
+    if (entity == null) {
+      return null;
+    }
+    return toDefinition(entity);
+  }
+
+  /**
+   * Get route configuration by route name (business identifier)
+   */
+  public RouteDefinition getRouteByName(String routeName) {
+    // Query from database
+    RouteEntity entity = routeRepository.findByRouteName(routeName);
+    if (entity == null) {
+      return null;
+    }
+    return toDefinition(entity);
   }
 
   /**
@@ -131,7 +164,9 @@ public class RouteService {
     // Use route ID as business route name
     String routeName = route.getId();
     
-    if (routeCache.containsKey(routeName)) {
+    // Check if route already exists in database
+    RouteEntity existing = routeRepository.findByRouteName(routeName);
+    if (existing != null) {
       throw new IllegalArgumentException("Route already exists: " + routeName);
     }
 
@@ -139,24 +174,20 @@ public class RouteService {
     log.info("Saving route to database: {}", routeName);
     RouteEntity entity = routeConverter.toEntity(route);
     entity.setRouteName(routeName);
+    entity.setRouteId(java.util.UUID.randomUUID().toString());
     entity = routeRepository.save(entity);
     
     log.info("Route saved with DB id={}, route_name={}", entity.getId(), entity.getRouteName());
 
-    // 2. Update memory cache
-    routeCache.put(routeName, route);
-    log.info("Route cached in memory: {}", routeName);
-
-    // 3. Push to Nacos (per-route format)
-    String routeDataId = ROUTE_PREFIX + routeName;
-    String routeJson = toJson(route);
-    configCenterService.publishConfig(routeDataId, routeJson);
+    // 2. Push to Nacos (per-route format using route_id UUID)
+    String routeDataId = ROUTE_PREFIX + entity.getRouteId();
+    configCenterService.publishConfig(routeDataId, route);
     log.info("Route pushed to Nacos: {}", routeDataId);
 
-    // 4. Update routes index
+    // 3. Update routes index
     updateRoutesIndex(getAllRouteIds());
     
-    log.info("Route created successfully: {} (Database + Cache + Nacos)", routeName);
+    log.info("Route created successfully: {} (Database + Nacos)", routeName);
     return entity;
   }
 
@@ -172,27 +203,69 @@ public class RouteService {
     RouteEntity entity = routeRepository.findById(id)
         .orElseThrow(() -> new IllegalArgumentException("Route not found with DB id: " + id));
 
-    // 1. Update database fields
+    // Update entity fields from route definition
+    entity.setDescription(route.getDescription());
+    
+    // Store complete configuration as JSON in metadata field for backup
+    try {
+      String configJson = objectMapper.writeValueAsString(route);
+      entity.setMetadata(configJson);
+    } catch (Exception e) {
+      log.warn("Failed to serialize route config to JSON", e);
+    }
+
+    // 1. Update database
     log.info("Updating route in database: {}", entity.getRouteName());
-    entity.setUri(route.getUri().toString());
-    entity.setOrderNum(route.getOrder());
-    // Note: predicates, filters, metadata are not persisted to DB in current design
     entity = routeRepository.save(entity);
 
-    // 2. Update memory cache (use routeName as key)
-    String routeName = entity.getRouteName();
-    routeCache.put(routeName, route);
-    log.info("Route updated in cache: {}", routeName);
-
-    // 3. Push to Nacos (overwrite per-route key)
-    String routeDataId = ROUTE_PREFIX + routeName;
-    String routeJson = toJson(route);
-    configCenterService.publishConfig(routeDataId, routeJson);
+    // 2. Push to Nacos (overwrite per-route key using route_id UUID)
+    String routeDataId = ROUTE_PREFIX + entity.getRouteId();
+    configCenterService.publishConfig(routeDataId, route);
     log.info("Route updated in Nacos: {}", routeDataId);
 
     // Note: No need to update index since routeName didn't change
     
-    log.info("Route updated successfully: {} (Database + Cache + Nacos)", routeName);
+    log.info("Route updated successfully: {} (Database + Nacos)", entity.getRouteName());
+    return entity;
+  }
+
+  /**
+   * Update route by route_id (UUID) with dual-write to database and Nacos.
+   */
+  @Transactional(rollbackFor = Exception.class)
+  public RouteEntity updateRouteByRouteId(String routeId, RouteDefinition route) {
+    if (route == null || routeId == null) {
+      throw new IllegalArgumentException("Invalid route definition or route_id");
+    }
+
+    RouteEntity entity = routeRepository.findByRouteId(routeId);
+    if (entity == null) {
+      throw new IllegalArgumentException("Route not found with route_id: " + routeId);
+    }
+
+    // Update entity fields from route definition
+    entity.setDescription(route.getDescription());
+    
+    // Store complete configuration as JSON in metadata field for backup
+    try {
+      String configJson = objectMapper.writeValueAsString(route);
+      entity.setMetadata(configJson);
+    } catch (Exception e) {
+      log.warn("Failed to serialize route config to JSON", e);
+    }
+
+    // 1. Update database
+    log.info("Updating route in database: {}", entity.getRouteName());
+    entity = routeRepository.save(entity);
+
+    // 2. Push to Nacos (overwrite per-route key using route_id UUID)
+    String routeDataId = ROUTE_PREFIX + entity.getRouteId();
+    configCenterService.publishConfig(routeDataId, route);
+    log.info("Route updated in Nacos: {}", routeDataId);
+
+    // Note: No need to update index since routeName didn't change
+    
+    log.info("Route updated successfully: {} (Database + Nacos)", entity.getRouteName());
     return entity;
   }
 
@@ -205,32 +278,147 @@ public class RouteService {
         .orElseThrow(() -> new IllegalArgumentException("Route not found with DB id: " + id));
     
     String routeName = entity.getRouteName();
-    log.info("Deleting route: {} (DB id: {})", routeName, id);
+    String routeId = entity.getRouteId();
+    log.info("Deleting route: {} (DB id: {}, route_id: {})", routeName, id, routeId);
 
-    // 1. Remove from cache first (to prevent concurrent access)
-    routeCache.remove(routeName);
-    log.info("Route removed from cache: {}", routeName);
+    // 1. Delete from Nacos (remove config using route_id UUID)
+    String routeDataId = ROUTE_PREFIX + entity.getRouteId();
+    configCenterService.removeConfig(routeDataId);
+    log.info("Route removed from Nacos: {}", routeDataId);
 
-    // 2. Delete from Nacos (push empty content)
-    String routeDataId = ROUTE_PREFIX + routeName;
-    configCenterService.publishConfig(routeDataId, "");
-    log.info("Route deleted from Nacos: {}", routeDataId);
-
-    // 3. Delete from database
+    // 2. Delete from database
     routeRepository.delete(entity);
     log.info("Route deleted from database: {}", id);
+
+    // 3. Update routes index
+    updateRoutesIndex(getAllRouteIds());
+    
+    log.info("Route deleted successfully: {} (Database + Nacos)", routeName);
+  }
+
+  /**
+   * Enable a route (persist to database and publish to Nacos).
+   */
+  @Transactional(rollbackFor = Exception.class)
+  public void enableRoute(Long id) {
+    RouteEntity entity = routeRepository.findById(id)
+        .orElseThrow(() -> new IllegalArgumentException("Route not found with DB id: " + id));
+    
+    if (entity.getEnabled()) {
+      log.warn("Route is already enabled: {} (DB id: {})", entity.getRouteName(), id);
+      return;
+    }
+
+    // 1. Update database
+    entity.setEnabled(true);
+    routeRepository.save(entity);
+    log.info("Route enabled in database: {} (DB id: {})", entity.getRouteName(), id);
+
+    // 2. Restore route definition from metadata
+    RouteDefinition route = toDefinition(entity);
+    
+    // 3. Publish to Nacos (this will trigger Gateway to add the route)
+    String routeDataId = ROUTE_PREFIX + entity.getRouteId();
+    configCenterService.publishConfig(routeDataId, route);
+    log.info("Route published to Nacos: {}", routeDataId);
 
     // 4. Update routes index
     updateRoutesIndex(getAllRouteIds());
     
-    log.info("Route deleted successfully: {} (Database + Cache + Nacos)", routeName);
+    log.info("Route enabled successfully: {} (Database + Nacos)", entity.getRouteName());
+  }
+
+  /**
+   * Enable a route by route_id (UUID).
+   */
+  @Transactional(rollbackFor = Exception.class)
+  public void enableRouteByRouteId(String routeId) {
+    RouteEntity entity = routeRepository.findByRouteId(routeId);
+    if (entity == null) {
+      throw new IllegalArgumentException("Route not found with route_id: " + routeId);
+    }
+    enableRoute(entity.getId());
+  }
+
+  /**
+   * Disable a route (update database and remove from Nacos).
+   */
+  @Transactional(rollbackFor = Exception.class)
+  public void disableRoute(Long id) {
+    RouteEntity entity = routeRepository.findById(id)
+        .orElseThrow(() -> new IllegalArgumentException("Route not found with DB id: " + id));
+    
+    if (!entity.getEnabled()) {
+      log.warn("Route is already disabled: {} (DB id: {})", entity.getRouteName(), id);
+      return;
+    }
+
+    // 1. Update database
+    entity.setEnabled(false);
+    routeRepository.save(entity);
+    log.info("Route disabled in database: {} (DB id: {})", entity.getRouteName(), id);
+
+    // 2. Remove from Nacos (this will trigger Gateway to remove the route)
+    // Keep it in cache for quick re-enable
+    String routeDataId = ROUTE_PREFIX + entity.getRouteId();
+    configCenterService.removeConfig(routeDataId);
+    log.info("Route removed from Nacos: {}", routeDataId);
+
+    // 3. Update routes index
+    updateRoutesIndex(getAllRouteIds());
+    
+    log.info("Route disabled successfully: {} (Database + Nacos)", entity.getRouteName());
+  }
+
+  /**
+   * Disable a route by route_id (UUID).
+   */
+  @Transactional(rollbackFor = Exception.class)
+  public void disableRouteByRouteId(String routeId) {
+    RouteEntity entity = routeRepository.findByRouteId(routeId);
+    if (entity == null) {
+      throw new IllegalArgumentException("Route not found with route_id: " + routeId);
+    }
+    disableRoute(entity.getId());
+  }
+
+  /**
+   * Delete route by route name (business identifier).
+   */
+  @Transactional(rollbackFor = Exception.class)
+  public void deleteRouteByName(String routeName) {
+    RouteEntity entity = routeRepository.findByRouteName(routeName);
+    if (entity == null) {
+      throw new IllegalArgumentException("Route not found: " + routeName);
+    }
+    
+    deleteRoute(entity.getId());
+  }
+
+  /**
+   * Delete route by route_id (UUID).
+   */
+  @Transactional(rollbackFor = Exception.class)
+  public void deleteRouteByRouteId(String routeId) {
+    // Find entity by route_id
+    List<RouteEntity> entities = routeRepository.findByEnabledTrue();
+    RouteEntity targetEntity = entities.stream()
+        .filter(e -> routeId.equals(e.getRouteId()))
+        .findFirst()
+        .orElseThrow(() -> new IllegalArgumentException("Route not found: " + routeId));
+    
+    deleteRoute(targetEntity.getId());
   }
 
   /**
    * Get all route IDs from cache.
    */
   private List<String> getAllRouteIds() {
-    return new ArrayList<>(routeCache.keySet());
+    // Query from database
+    List<RouteEntity> entities = routeRepository.findAll();
+    return entities.stream()
+        .map(RouteEntity::getRouteId)
+        .collect(java.util.stream.Collectors.toList());
   }
 
   /**
@@ -238,8 +426,8 @@ public class RouteService {
    */
   private void updateRoutesIndex(List<String> routeIds) {
     try {
-      String indexJson = objectMapper.writeValueAsString(routeIds);
-      configCenterService.publishConfig(ROUTES_INDEX, indexJson);
+      // Publish as JSON array directly, not stringified JSON
+      configCenterService.publishConfig(ROUTES_INDEX, routeIds);
       log.debug("Routes index updated: {} routes", routeIds.size());
     } catch (Exception e) {
       log.error("Failed to update routes index", e);
@@ -255,5 +443,55 @@ public class RouteService {
     } catch (Exception e) {
       throw new RuntimeException("Failed to convert route to JSON", e);
     }
+  }
+
+  /**
+   * Convert RouteDefinition to RouteEntity.
+   * Stores complete configuration as JSON for backup purposes.
+   */
+  private RouteEntity toEntity(RouteDefinition route) {
+    RouteEntity entity = new RouteEntity();
+    entity.setRouteName(route.getId());
+    entity.setDescription(route.getDescription());
+    
+    // Store complete configuration as JSON in metadata field for backup
+    try {
+      String configJson = objectMapper.writeValueAsString(route);
+      entity.setMetadata(configJson);
+    } catch (Exception e) {
+      log.warn("Failed to serialize route config to JSON", e);
+    }
+    
+    return entity;
+  }
+
+  /**
+   * Convert RouteEntity to RouteDefinition.
+   * Restores complete configuration from JSON backup.
+   */
+  private RouteDefinition toDefinition(RouteEntity entity) {
+    // Try to restore from JSON backup first
+    if (entity.getMetadata() != null && !entity.getMetadata().isEmpty()) {
+      try {
+        RouteDefinition route = objectMapper.readValue(entity.getMetadata(), RouteDefinition.class);
+        if (route != null && route.getUri() != null && !route.getUri().isEmpty()) {
+          // Valid route with URI
+          return route;
+        }
+      } catch (Exception e) {
+        log.warn("Failed to deserialize route config from JSON, using fallback", e);
+      }
+    }
+    
+    // Fallback: create minimal definition from database fields
+    RouteDefinition route = new RouteDefinition();
+    route.setId(entity.getRouteName());
+    
+    // Note: If metadata is corrupted, we can't recover predicates/filters/uri
+    // This should only happen in development/testing scenarios
+    log.warn("Route metadata is missing or invalid for route: {} (DB id: {}). Using partial definition.", 
+        entity.getRouteName(), entity.getId());
+    
+    return route;
   }
 }

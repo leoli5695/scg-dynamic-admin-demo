@@ -305,11 +305,19 @@ public class ServiceManager {
         private String serviceId;
         private String address;
         private int weight;
+        private boolean enabled = true;  // ✅ Add enabled field
         
         public ServiceInstance(String serviceId, String address, int weight) {
             this.serviceId = serviceId;
             this.address = address;
             this.weight = weight;
+        }
+        
+        public ServiceInstance(String serviceId, String address, int weight, boolean enabled) {
+            this.serviceId = serviceId;
+            this.address = address;
+            this.weight = weight;
+            this.enabled = enabled;  // ✅ Set enabled from parameter
         }
         
         // Compatibility methods for StaticDiscoveryService
@@ -326,7 +334,7 @@ public class ServiceManager {
         }
         
         public boolean isEnabled() {
-            return true; // Assume all static instances are enabled
+            return enabled;  // ✅ Return actual enabled value
         }
         
         public String getServiceName() {

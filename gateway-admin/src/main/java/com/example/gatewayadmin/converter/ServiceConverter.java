@@ -24,11 +24,9 @@ public class ServiceConverter {
         }
 
         ServiceEntity entity = new ServiceEntity();
-        entity.setId(service.getInstanceId());
-        entity.setName(service.getServiceId());
-        entity.setUri(service.getUri() != null ? service.getUri().toString() : null);
-        entity.setHost(service.getHost());
-        entity.setPort(service.getPort());
+        // Don't set ID - let database auto-generate it
+        entity.setServiceName(service.getServiceId());  // Use serviceId as business name
+        // Store all configuration in metadata field
         entity.setEnabled(true);
         entity.setMetadata(convertToJson(service.getMetadata()));
         entity.setCreatedAt(LocalDateTime.now());
@@ -39,41 +37,44 @@ public class ServiceConverter {
 
     /**
      * Convert ServiceEntity to ServiceDefinition.
+     * Note: This method is kept for backward compatibility but may not be used in current architecture.
      */
     public org.springframework.cloud.client.ServiceInstance toServiceInstance(ServiceEntity entity) {
         if (entity == null) {
             return null;
         }
 
+        // Return a minimal ServiceInstance implementation
+        // Actual service instances are loaded from Nacos, not from database
         return new org.springframework.cloud.client.ServiceInstance() {
             @Override
             public String getInstanceId() {
-                return entity.getId();
+                return entity.getServiceId() != null ? entity.getServiceId() : String.valueOf(entity.getId());
             }
 
             @Override
             public String getServiceId() {
-                return entity.getName();
+                return entity.getServiceName();
             }
 
             @Override
             public String getHost() {
-                return entity.getHost();
+                return null;  // Not stored in database anymore
             }
 
             @Override
             public int getPort() {
-                return entity.getPort();
+                return 0;  // Not stored in database anymore
             }
 
             @Override
             public boolean isSecure() {
-                return entity.getUri() != null && entity.getUri().startsWith("https");
+                return false;  // Not stored in database anymore
             }
 
             @Override
             public java.net.URI getUri() {
-                return entity.getUri() != null ? java.net.URI.create(entity.getUri()) : null;
+                return null;  // Not stored in database anymore
             }
 
             @Override
@@ -83,7 +84,7 @@ public class ServiceConverter {
 
             @Override
             public String getScheme() {
-                return isSecure() ? "https" : "http";
+                return "http";
             }
         };
     }

@@ -19,6 +19,17 @@ public interface ConfigCenterService {
     <T> T getConfig(String dataId, Class<T> type);
 
     /**
+     * Get configuration from config center with type reference.
+     * Useful for complex types like List<> or Map<>.
+     *
+     * @param dataId        configuration data ID
+     * @param typeReference target type reference
+     * @param <T>           configuration type
+     * @return configuration object, or null if not found
+     */
+    <T> T getConfig(String dataId, com.fasterxml.jackson.core.type.TypeReference<T> typeReference);
+
+    /**
      * Publish configuration to config center.
      *
      * @param dataId configuration data ID
@@ -34,6 +45,14 @@ public interface ConfigCenterService {
      * @return true if removed successfully, false otherwise
      */
     boolean removeConfig(String dataId);
+
+    /**
+     * Check if configuration exists in config center.
+     *
+     * @param dataId configuration data ID
+     * @return true if exists, false otherwise
+     */
+    boolean configExists(String dataId);
 
     /**
      * Get config center type name.

@@ -46,14 +46,13 @@ public class ServiceReconcileTask implements ReconcileTask<ServiceEntity> {
     @Override
     public Set<String> loadFromNacos() {
         try {
-            String indexContent = configCenterService.getConfig(SERVICES_INDEX, String.class);
-            if (indexContent == null || indexContent.isBlank()) {
+            // Read as List<String> since index is stored as JSON array
+            List<String> serviceNames = configCenterService.getConfig(SERVICES_INDEX, 
+                new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+            if (serviceNames == null || serviceNames.isEmpty()) {
                 return Set.of();
             }
-            return objectMapper.readValue(indexContent, 
-                new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {})
-                .stream()
-                .collect(Collectors.toSet());
+            return serviceNames.stream().collect(Collectors.toSet());
         } catch (Exception e) {
             log.error("Failed to load services index from Nacos", e);
             return Set.of();
@@ -62,37 +61,36 @@ public class ServiceReconcileTask implements ReconcileTask<ServiceEntity> {
     
     @Override
     public String extractId(ServiceEntity entity) {
-        return entity.getId();
+        return entity.getServiceId();  // Use service_id (UUID) as business identifier
     }
     
     @Override
     public void repairMissingInNacos(ServiceEntity entity) throws Exception {
-        log.info("🔧 Repairing missing service in Nacos: {}", entity.getId());
+        log.info("🔧 Repairing missing service in Nacos: {}", entity.getServiceId());
         
-        // Convert entity to ServiceDefinition (uses name as identifier)
+        // Convert entity to ServiceDefinition
         ServiceDefinition service = new ServiceDefinition();
-        service.setName(entity.getName());
-        service.setDescription(entity.getDescription());
+        service.setName(entity.getServiceName());  // Use serviceName instead of name
         
-        // Push to Nacos
-        String serviceDataId = SERVICE_PREFIX + entity.getId();
+        // Push to Nacos using service_id
+        String serviceDataId = SERVICE_PREFIX + entity.getServiceId();
         configCenterService.publishConfig(serviceDataId, service);
         
-        log.info("✅ Repaired service: {}", entity.getId());
+        log.info("✅ Repaired service: {}", entity.getServiceId());
         
         // Rebuild services index to ensure consistency
         rebuildServicesIndex();
     }
     
     @Override
-    public void removeOrphanFromNacos(String entityId) throws Exception {
-        log.info("🗑️  Removing orphaned service from Nacos: {}", entityId);
+    public void removeOrphanFromNacos(String serviceId) throws Exception {
+        log.info("🗑️  Removing orphaned service from Nacos: {}", serviceId);
         
-        // Push empty string to Nacos (delete operation)
-        String serviceDataId = SERVICE_PREFIX + entityId;
-        configCenterService.publishConfig(serviceDataId, "");
+        // Delete from Nacos using service_id
+        String serviceDataId = SERVICE_PREFIX + serviceId;
+        configCenterService.removeConfig(serviceDataId);
         
-        log.info("✅ Removed orphan service: {}", entityId);
+        log.info("✅ Removed orphan service: {}", serviceId);
         
         // Rebuild services index after removal
         rebuildServicesIndex();
@@ -103,11 +101,11 @@ public class ServiceReconcileTask implements ReconcileTask<ServiceEntity> {
      */
     private void rebuildServicesIndex() throws Exception {
         List<String> serviceIds = serviceRepository.findAll().stream()
-            .map(ServiceEntity::getId)
+            .map(ServiceEntity::getServiceName)
             .collect(Collectors.toList());
         
-        String indexJson = objectMapper.writeValueAsString(serviceIds);
-        configCenterService.publishConfig(SERVICES_INDEX, indexJson);
+        // Publish as JSON array directly, not stringified JSON
+        configCenterService.publishConfig(SERVICES_INDEX, serviceIds);
         log.debug("Services index rebuilt with {} services", serviceIds.size());
     }
 }

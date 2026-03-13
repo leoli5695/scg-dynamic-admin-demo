@@ -1,7 +1,7 @@
 package com.example.gatewayadmin.reconcile;
 
 import com.example.gatewayadmin.center.ConfigCenterService;
-import com.example.gatewayadmin.model.PluginConfig;
+import com.example.gatewayadmin.model.StrategyConfig;
 import com.example.gatewayadmin.model.StrategyEntity;
 import com.example.gatewayadmin.repository.StrategyRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -46,48 +46,48 @@ public class StrategyReconcileTask implements ReconcileTask<StrategyEntity> {
     public Set<String> loadFromNacos() {
         try {
             // Load entire plugins config
-            PluginConfig pluginConfig = configCenterService.getConfig(PLUGINS_DATA_ID, PluginConfig.class);
-            if (pluginConfig == null) {
+            StrategyConfig strategyConfig = configCenterService.getConfig(PLUGINS_DATA_ID, StrategyConfig.class);
+            if (strategyConfig == null) {
                 return Set.of();
             }
             
             // Collect all strategy IDs (using DB id stored in routeId field)
             Set<String> strategyIds = new HashSet<>();
             
-            if (pluginConfig.getRateLimiters() != null) {
-                pluginConfig.getRateLimiters().forEach(r -> {
+            if (strategyConfig.getRateLimiters() != null) {
+                strategyConfig.getRateLimiters().forEach(r -> {
                     if (r.getRouteId() != null && !r.getRouteId().isEmpty()) {
                         strategyIds.add(r.getRouteId());
                     }
                 });
             }
             
-            if (pluginConfig.getIpFilters() != null) {
-                pluginConfig.getIpFilters().forEach(f -> {
+            if (strategyConfig.getIpFilters() != null) {
+                strategyConfig.getIpFilters().forEach(f -> {
                     if (f.getRouteId() != null && !f.getRouteId().isEmpty()) {
                         strategyIds.add(f.getRouteId());
                     }
                 });
             }
             
-            if (pluginConfig.getCircuitBreakers() != null) {
-                pluginConfig.getCircuitBreakers().forEach(c -> {
+            if (strategyConfig.getCircuitBreakers() != null) {
+                strategyConfig.getCircuitBreakers().forEach(c -> {
                     if (c.getRouteId() != null && !c.getRouteId().isEmpty()) {
                         strategyIds.add(c.getRouteId());
                     }
                 });
             }
             
-            if (pluginConfig.getTimeouts() != null) {
-                pluginConfig.getTimeouts().forEach(t -> {
+            if (strategyConfig.getTimeouts() != null) {
+                strategyConfig.getTimeouts().forEach(t -> {
                     if (t.getRouteId() != null && !t.getRouteId().isEmpty()) {
                         strategyIds.add(t.getRouteId());
                     }
                 });
             }
             
-            if (pluginConfig.getAuthConfigs() != null) {
-                pluginConfig.getAuthConfigs().forEach(a -> {
+            if (strategyConfig.getAuthConfigs() != null) {
+                strategyConfig.getAuthConfigs().forEach(a -> {
                     if (a.getRouteId() != null && !a.getRouteId().isEmpty()) {
                         strategyIds.add(a.getRouteId());
                     }
@@ -104,18 +104,18 @@ public class StrategyReconcileTask implements ReconcileTask<StrategyEntity> {
     
     @Override
     public String extractId(StrategyEntity entity) {
-        return entity.getId();
+        return entity.getStrategyId();  // Use strategy_id (UUID) as business identifier
     }
     
     @Override
     public void repairMissingInNacos(StrategyEntity entity) throws Exception {
-        log.info("🔧 Repairing missing strategy in Nacos: {} (type: {})", 
-                 entity.getId(), entity.getStrategyType());
+        log.info("🔧 Repairing missing strategy in Nacos: {} (type: from metadata)", 
+                 entity.getStrategyName());
         
         // Simply rebuild entire plugins config from DB
         rebuildPluginsConfigFromDB();
         
-        log.info("✅ Repaired strategy: {} (type: {})", entity.getId(), entity.getStrategyType());
+        log.info("✅ Repaired strategy: {}", entity.getStrategyName());
     }
     
     @Override
@@ -135,97 +135,116 @@ public class StrategyReconcileTask implements ReconcileTask<StrategyEntity> {
     private void rebuildPluginsConfigFromDB() throws Exception {
         List<StrategyEntity> allStrategies = strategyRepository.findAll();
         
-        PluginConfig pluginConfig = new PluginConfig();
-        pluginConfig.setRateLimiters(new java.util.ArrayList<>());
-        pluginConfig.setIpFilters(new java.util.ArrayList<>());
-        pluginConfig.setCircuitBreakers(new java.util.ArrayList<>());
-        pluginConfig.setTimeouts(new java.util.ArrayList<>());
-        pluginConfig.setAuthConfigs(new java.util.ArrayList<>());
+        StrategyConfig strategyConfig = new StrategyConfig();
+        strategyConfig.setRateLimiters(new java.util.ArrayList<>());
+        strategyConfig.setIpFilters(new java.util.ArrayList<>());
+        strategyConfig.setCircuitBreakers(new java.util.ArrayList<>());
+        strategyConfig.setTimeouts(new java.util.ArrayList<>());
+        strategyConfig.setAuthConfigs(new java.util.ArrayList<>());
         
         for (StrategyEntity entity : allStrategies) {
             try {
-                addStrategyToConfig(pluginConfig, entity);
+                addStrategyToConfig(strategyConfig, entity);
             } catch (Exception e) {
                 log.error("Failed to add strategy {} to config", entity.getId(), e);
             }
         }
         
         // Publish rebuilt config
-        configCenterService.publishConfig(PLUGINS_DATA_ID, pluginConfig);
+        configCenterService.publishConfig(PLUGINS_DATA_ID, strategyConfig);
         log.info("✅ Rebuilt plugins config from DB with {} strategies", allStrategies.size());
     }
     
     /**
      * Add strategy entity to appropriate plugin list based on type.
      */
-    private void addStrategyToConfig(PluginConfig pluginConfig, StrategyEntity entity) throws Exception {
-        String type = entity.getStrategyType();
-        String routeId = entity.getId(); // Use DB id as routeId
+    private void addStrategyToConfig(StrategyConfig strategyConfig, StrategyEntity entity) throws Exception {
+        // Restore from metadata JSON
+        if (entity.getMetadata() == null || entity.getMetadata().isEmpty()) {
+            log.warn("Strategy {} has no metadata", entity.getStrategyName());
+            return;
+        }
         
-        switch (type.toUpperCase()) {
-            case "RATE_LIMITER":
-                if (pluginConfig.getRateLimiters() == null) {
-                    pluginConfig.setRateLimiters(new java.util.ArrayList<>());
-                }
-                PluginConfig.RateLimiterConfig rateLimiter = objectMapper.readValue(
-                    entity.getConfig(), PluginConfig.RateLimiterConfig.class);
-                rateLimiter.setRouteId(routeId);
-                
-                // Remove existing if present (update scenario)
-                pluginConfig.getRateLimiters().removeIf(r -> routeId.equals(r.getRouteId()));
-                pluginConfig.getRateLimiters().add(rateLimiter);
-                break;
-                
-            case "IP_FILTER":
-                if (pluginConfig.getIpFilters() == null) {
-                    pluginConfig.setIpFilters(new java.util.ArrayList<>());
-                }
-                PluginConfig.IPFilterConfig ipFilter = objectMapper.readValue(
-                    entity.getConfig(), PluginConfig.IPFilterConfig.class);
-                ipFilter.setRouteId(routeId);
-                
-                pluginConfig.getIpFilters().removeIf(f -> routeId.equals(f.getRouteId()));
-                pluginConfig.getIpFilters().add(ipFilter);
-                break;
-                
-            case "CIRCUIT_BREAKER":
-                if (pluginConfig.getCircuitBreakers() == null) {
-                    pluginConfig.setCircuitBreakers(new java.util.ArrayList<>());
-                }
-                PluginConfig.CircuitBreakerConfig circuitBreaker = objectMapper.readValue(
-                    entity.getConfig(), PluginConfig.CircuitBreakerConfig.class);
-                circuitBreaker.setRouteId(routeId);
-                
-                pluginConfig.getCircuitBreakers().removeIf(c -> routeId.equals(c.getRouteId()));
-                pluginConfig.getCircuitBreakers().add(circuitBreaker);
-                break;
-                
-            case "TIMEOUT":
-                if (pluginConfig.getTimeouts() == null) {
-                    pluginConfig.setTimeouts(new java.util.ArrayList<>());
-                }
-                PluginConfig.TimeoutConfig timeout = objectMapper.readValue(
-                    entity.getConfig(), PluginConfig.TimeoutConfig.class);
-                timeout.setRouteId(routeId);
-                
-                pluginConfig.getTimeouts().removeIf(t -> routeId.equals(t.getRouteId()));
-                pluginConfig.getTimeouts().add(timeout);
-                break;
-                
-            case "AUTH":
-                if (pluginConfig.getAuthConfigs() == null) {
-                    pluginConfig.setAuthConfigs(new java.util.ArrayList<>());
-                }
-                com.example.gatewayadmin.model.AuthConfig authConfig = objectMapper.readValue(
-                    entity.getConfig(), com.example.gatewayadmin.model.AuthConfig.class);
-                authConfig.setRouteId(routeId);
-                
-                pluginConfig.getAuthConfigs().removeIf(a -> routeId.equals(a.getRouteId()));
-                pluginConfig.getAuthConfigs().add(authConfig);
-                break;
-                
-            default:
-                log.warn("Unknown strategy type: {}", type);
+        try {
+            // Read as generic map first to extract type and routeId
+            java.util.Map<String, Object> metadataMap = objectMapper.readValue(
+                entity.getMetadata(), new com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, Object>>() {});
+            
+            String type = (String) metadataMap.get("type");
+            String routeId = (String) metadataMap.get("routeId");
+            
+            if (type == null || routeId == null) {
+                log.warn("Strategy {} missing type or routeId in metadata", entity.getStrategyName());
+                return;
+            }
+            
+            switch (type.toUpperCase()) {
+                case "RATE_LIMITER":
+                    if (strategyConfig.getRateLimiters() == null) {
+                        strategyConfig.setRateLimiters(new java.util.ArrayList<>());
+                    }
+                    StrategyConfig.RateLimiterConfig rateLimiter = objectMapper.readValue(
+                        entity.getMetadata(), StrategyConfig.RateLimiterConfig.class);
+                    rateLimiter.setRouteId(routeId);
+                    
+                    // Remove existing if present (update scenario)
+                    strategyConfig.getRateLimiters().removeIf(r -> routeId.equals(r.getRouteId()));
+                    strategyConfig.getRateLimiters().add(rateLimiter);
+                    break;
+                    
+                case "IP_FILTER":
+                    if (strategyConfig.getIpFilters() == null) {
+                        strategyConfig.setIpFilters(new java.util.ArrayList<>());
+                    }
+                    StrategyConfig.IPFilterConfig ipFilter = objectMapper.readValue(
+                        entity.getMetadata(), StrategyConfig.IPFilterConfig.class);
+                    ipFilter.setRouteId(routeId);
+                    
+                    strategyConfig.getIpFilters().removeIf(f -> routeId.equals(f.getRouteId()));
+                    strategyConfig.getIpFilters().add(ipFilter);
+                    break;
+                    
+                case "CIRCUIT_BREAKER":
+                    if (strategyConfig.getCircuitBreakers() == null) {
+                        strategyConfig.setCircuitBreakers(new java.util.ArrayList<>());
+                    }
+                    StrategyConfig.CircuitBreakerConfig circuitBreaker = objectMapper.readValue(
+                        entity.getMetadata(), StrategyConfig.CircuitBreakerConfig.class);
+                    circuitBreaker.setRouteId(routeId);
+                    
+                    strategyConfig.getCircuitBreakers().removeIf(c -> routeId.equals(c.getRouteId()));
+                    strategyConfig.getCircuitBreakers().add(circuitBreaker);
+                    break;
+                    
+                case "TIMEOUT":
+                    if (strategyConfig.getTimeouts() == null) {
+                        strategyConfig.setTimeouts(new java.util.ArrayList<>());
+                    }
+                    StrategyConfig.TimeoutConfig timeout = objectMapper.readValue(
+                        entity.getMetadata(), StrategyConfig.TimeoutConfig.class);
+                    timeout.setRouteId(routeId);
+                    
+                    strategyConfig.getTimeouts().removeIf(t -> routeId.equals(t.getRouteId()));
+                    strategyConfig.getTimeouts().add(timeout);
+                    break;
+                    
+                case "AUTH":
+                    if (strategyConfig.getAuthConfigs() == null) {
+                        strategyConfig.setAuthConfigs(new java.util.ArrayList<>());
+                    }
+                    com.example.gatewayadmin.model.AuthConfig authConfig = objectMapper.readValue(
+                        entity.getMetadata(), com.example.gatewayadmin.model.AuthConfig.class);
+                    authConfig.setRouteId(routeId);
+                    
+                    strategyConfig.getAuthConfigs().removeIf(a -> routeId.equals(a.getRouteId()));
+                    strategyConfig.getAuthConfigs().add(authConfig);
+                    break;
+                    
+                default:
+                    log.warn("Unknown strategy type: {}", type);
+            }
+        } catch (Exception e) {
+            log.error("Failed to process strategy {} from metadata", entity.getStrategyName(), e);
         }
     }
 }

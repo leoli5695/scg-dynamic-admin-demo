@@ -1,10 +1,10 @@
 package com.example.gatewayadmin.service;
 
 import com.example.gatewayadmin.center.ConfigCenterService;
+import com.example.gatewayadmin.model.GatewayStrategyConfig;
+import com.example.gatewayadmin.model.StrategyConfig;
 import com.example.gatewayadmin.properties.GatewayAdminProperties;
 import com.example.gatewayadmin.model.AuthConfig;
-import com.example.gatewayadmin.model.GatewayPluginsConfig;
-import com.example.gatewayadmin.model.PluginConfig;
 import com.example.gatewayadmin.model.StrategyEntity;
 import com.example.gatewayadmin.repository.StrategyRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -45,7 +45,7 @@ public class StrategyService {
    private ConfigCenterPublisher publisher;
 
     // Local cache
-   private PluginConfig pluginCache = new PluginConfig();
+   private StrategyConfig pluginCache = new StrategyConfig();
 
     @PostConstruct
     public void init() {
@@ -59,7 +59,7 @@ public class StrategyService {
      * Get all plugin configurations.
      * Reloads from config center on cache miss.
      */
-    public PluginConfig getAllPlugins() {
+    public StrategyConfig getAllPlugins() {
       if (pluginCache == null || pluginCache.getRateLimiters() == null) {
             log.info("Strategy cache is empty, reloading from config center");
             loadPluginsFromConfigCenter();
@@ -70,7 +70,7 @@ public class StrategyService {
     /**
      * Force refresh cache from config center
      */
-    public PluginConfig refreshFromNacos() {
+    public StrategyConfig refreshFromNacos() {
         log.info("Force refreshing strategies from config center");
         loadPluginsFromConfigCenter();
       return pluginCache;
@@ -79,35 +79,35 @@ public class StrategyService {
     /**
      * Get all rate limiter configurations
      */
-    public List<PluginConfig.RateLimiterConfig> getAllRateLimiters() {
+    public List<StrategyConfig.RateLimiterConfig> getAllRateLimiters() {
         return pluginCache.getRateLimiters();
     }
 
     /**
      * Get all IP filter configurations
      */
-    public List<PluginConfig.IPFilterConfig> getAllIPFilters() {
+    public List<StrategyConfig.IPFilterConfig> getAllIPFilters() {
         return pluginCache.getIpFilters();
     }
 
     /**
      * Get all timeout configurations
      */
-    public List<PluginConfig.TimeoutConfig> getAllTimeouts() {
+    public List<StrategyConfig.TimeoutConfig> getAllTimeouts() {
         return pluginCache.getTimeouts();
     }
 
     /**
      * Get all circuit breaker configurations
      */
-    public List<PluginConfig.CircuitBreakerConfig> getAllCircuitBreakers() {
+    public List<StrategyConfig.CircuitBreakerConfig> getAllCircuitBreakers() {
         return pluginCache.getCircuitBreakers();
     }
 
     /**
      * Get circuit breaker configuration by route ID
      */
-    public PluginConfig.CircuitBreakerConfig getCircuitBreakerByRoute(String routeId) {
+    public StrategyConfig.CircuitBreakerConfig getCircuitBreakerByRoute(String routeId) {
         return pluginCache.getCircuitBreakers().stream()
                 .filter(c -> routeId.equals(c.getRouteId()) && c.isEnabled())
                 .findFirst()
@@ -134,7 +134,7 @@ public class StrategyService {
     /**
      * Get IP filter configuration by route ID
      */
-    public PluginConfig.IPFilterConfig getIPFilterByRoute(String routeId) {
+    public StrategyConfig.IPFilterConfig getIPFilterByRoute(String routeId) {
         return pluginCache.getIpFilters().stream()
                 .filter(f -> routeId.equals(f.getRouteId()) && f.isEnabled())
                 .findFirst()
@@ -144,7 +144,7 @@ public class StrategyService {
     /**
      * Get rate limiter configuration by route ID
      */
-    public PluginConfig.RateLimiterConfig getRateLimiterByRouteId(String routeId) {
+    public StrategyConfig.RateLimiterConfig getRateLimiterByRouteId(String routeId) {
         return pluginCache.getRateLimiters().stream()
                 .filter(r -> routeId.equals(r.getRouteId()) && r.isEnabled())
                 .findFirst()
@@ -154,7 +154,7 @@ public class StrategyService {
     /**
      * Get timeout configuration by route ID
      */
-    public PluginConfig.TimeoutConfig getTimeoutByRoute(String routeId) {
+    public StrategyConfig.TimeoutConfig getTimeoutByRoute(String routeId) {
         return pluginCache.getTimeouts().stream()
                 .filter(t -> routeId.equals(t.getRouteId()) && t.isEnabled())
                 .findFirst()
@@ -164,14 +164,14 @@ public class StrategyService {
     /**
      * Create rate limiter configuration
      */
-    public boolean createRateLimiter(PluginConfig.RateLimiterConfig config) {
+    public boolean createRateLimiter(StrategyConfig.RateLimiterConfig config) {
         if (config == null || config.getRouteId() == null || config.getRouteId().isEmpty()) {
             log.warn("Invalid rate limiter config");
             return false;
         }
 
         // Check if already exists
-        Optional<PluginConfig.RateLimiterConfig> existing = pluginCache.getRateLimiters().stream()
+        Optional<StrategyConfig.RateLimiterConfig> existing = pluginCache.getRateLimiters().stream()
                 .filter(r -> config.getRouteId().equals(r.getRouteId()))
                 .findFirst();
 
@@ -180,13 +180,13 @@ public class StrategyService {
         }
 
         pluginCache.getRateLimiters().add(config);
-        return publishAndSave(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayStrategyConfig("1.0", pluginCache));
     }
 
     /**
      * Update rate limiter configuration
      */
-    public boolean updateRateLimiter(String routeId, PluginConfig.RateLimiterConfig config) {
+    public boolean updateRateLimiter(String routeId, StrategyConfig.RateLimiterConfig config) {
         if (config == null || routeId == null || routeId.isEmpty()) {
             log.warn("Invalid rate limiter config");
             return false;
@@ -199,7 +199,7 @@ public class StrategyService {
                 .collect(Collectors.toList()));
 
         pluginCache.getRateLimiters().add(config);
-        return publishAndSave(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayStrategyConfig("1.0", pluginCache));
     }
 
     /**
@@ -220,7 +220,7 @@ public class StrategyService {
             return publisher.remove();
         }
 
-        boolean result = publishAndSave(new GatewayPluginsConfig(pluginCache));
+        boolean result = publishAndSave(new GatewayStrategyConfig("1.0", pluginCache));
         if (result) {
             log.info("Successfully deleted rate limiter '{}' and published to Nacos", routeId);
         } else {
@@ -234,13 +234,13 @@ public class StrategyService {
     /**
      * Create IP filter configuration
      */
-    public boolean createIPFilter(PluginConfig.IPFilterConfig config) {
+    public boolean createIPFilter(StrategyConfig.IPFilterConfig config) {
         if (config == null || config.getRouteId() == null || config.getRouteId().isEmpty()) {
             log.warn("Invalid IP filter config");
             return false;
         }
 
-        Optional<PluginConfig.IPFilterConfig> existing = pluginCache.getIpFilters().stream()
+        Optional<StrategyConfig.IPFilterConfig> existing = pluginCache.getIpFilters().stream()
                 .filter(f -> config.getRouteId().equals(f.getRouteId()))
                 .findFirst();
 
@@ -249,13 +249,13 @@ public class StrategyService {
         }
 
         pluginCache.getIpFilters().add(config);
-        return publishAndSave(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayStrategyConfig("1.0", pluginCache));
     }
 
     /**
      * Update IP filter configuration
      */
-    public boolean updateIPFilter(String routeId, PluginConfig.IPFilterConfig config) {
+    public boolean updateIPFilter(String routeId, StrategyConfig.IPFilterConfig config) {
         if (config == null || routeId == null || routeId.isEmpty()) {
             log.warn("Invalid IP filter config");
             return false;
@@ -268,7 +268,7 @@ public class StrategyService {
                 .collect(Collectors.toList()));
 
         pluginCache.getIpFilters().add(config);
-        return publishAndSave(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayStrategyConfig("1.0", pluginCache));
     }
 
     /**
@@ -289,7 +289,7 @@ public class StrategyService {
             return publisher.remove();
         }
 
-        boolean result = publishAndSave(new GatewayPluginsConfig(pluginCache));
+        boolean result = publishAndSave(new GatewayStrategyConfig("1.0", pluginCache));
         if (result) {
             log.info("Successfully deleted IP filter '{}' and published to Nacos", routeId);
         } else {
@@ -301,13 +301,13 @@ public class StrategyService {
     /**
      * Create timeout configuration
      */
-    public boolean createTimeout(PluginConfig.TimeoutConfig config) {
+    public boolean createTimeout(StrategyConfig.TimeoutConfig config) {
         if (config == null || config.getRouteId() == null || config.getRouteId().isEmpty()) {
             log.warn("Invalid timeout config");
             return false;
         }
 
-        Optional<PluginConfig.TimeoutConfig> existing = pluginCache.getTimeouts().stream()
+        Optional<StrategyConfig.TimeoutConfig> existing = pluginCache.getTimeouts().stream()
                 .filter(t -> config.getRouteId().equals(t.getRouteId()))
                 .findFirst();
 
@@ -316,13 +316,13 @@ public class StrategyService {
         }
 
         pluginCache.getTimeouts().add(config);
-        return publishAndSave(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayStrategyConfig("1.0", pluginCache));
     }
 
     /**
      * Update timeout configuration
      */
-    public boolean updateTimeout(String routeId, PluginConfig.TimeoutConfig config) {
+    public boolean updateTimeout(String routeId, StrategyConfig.TimeoutConfig config) {
         if (config == null || routeId == null || routeId.isEmpty()) {
             log.warn("Invalid timeout config");
             return false;
@@ -335,7 +335,7 @@ public class StrategyService {
                 .collect(Collectors.toList()));
 
         pluginCache.getTimeouts().add(config);
-        return publishAndSave(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayStrategyConfig("1.0", pluginCache));
     }
 
     /**
@@ -356,7 +356,7 @@ public class StrategyService {
             return publisher.remove();
         }
 
-        boolean result = publishAndSave(new GatewayPluginsConfig(pluginCache));
+        boolean result = publishAndSave(new GatewayStrategyConfig("1.0", pluginCache));
         if (result) {
             log.info("Successfully deleted timeout config '{}' and published to Nacos", routeId);
         } else {
@@ -370,7 +370,7 @@ public class StrategyService {
     /**
      * Create circuit breaker configuration
      */
-    public boolean createCircuitBreaker(PluginConfig.CircuitBreakerConfig config) {
+    public boolean createCircuitBreaker(StrategyConfig.CircuitBreakerConfig config) {
         if (config == null || config.getRouteId() == null || config.getRouteId().isEmpty()) {
             log.warn("Invalid circuit breaker config");
             return false;
@@ -378,13 +378,13 @@ public class StrategyService {
 
         pluginCache.getCircuitBreakers().removeIf(c -> config.getRouteId().equals(c.getRouteId()));
         pluginCache.getCircuitBreakers().add(config);
-        return publishAndSave(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayStrategyConfig("1.0", pluginCache));
     }
 
     /**
      * Update circuit breaker configuration
      */
-    public boolean updateCircuitBreaker(String routeId, PluginConfig.CircuitBreakerConfig config) {
+    public boolean updateCircuitBreaker(String routeId, StrategyConfig.CircuitBreakerConfig config) {
         if (config == null || routeId == null || routeId.isEmpty()) {
             log.warn("Invalid circuit breaker config");
             return false;
@@ -397,7 +397,7 @@ public class StrategyService {
                 .collect(Collectors.toList()));
 
         pluginCache.getCircuitBreakers().add(config);
-        return publishAndSave(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayStrategyConfig("1.0", pluginCache));
     }
 
     /**
@@ -418,7 +418,7 @@ public class StrategyService {
             return publisher.remove();
         }
 
-        boolean result = publishAndSave(new GatewayPluginsConfig(pluginCache));
+        boolean result = publishAndSave(new GatewayStrategyConfig("1.0", pluginCache));
         if (result) {
             log.info("Successfully deleted circuit breaker '{}' and published to Nacos", routeId);
         } else {
@@ -430,12 +430,12 @@ public class StrategyService {
     /**
      * Batch update all strategy configurations
      */
-    public boolean batchUpdatePlugins(PluginConfig plugins) {
+    public boolean batchUpdatePlugins(StrategyConfig plugins) {
         if (plugins == null) {
             return false;
         }
         this.pluginCache = plugins;
-        return publishAndSave(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayStrategyConfig("1.0", pluginCache));
     }
 
     /**
@@ -455,17 +455,17 @@ public class StrategyService {
      */
    private void loadPluginsFromConfigCenter() {
         try {
-            GatewayPluginsConfig config = configCenterService.getConfig(pluginsDataId, GatewayPluginsConfig.class);
+            GatewayStrategyConfig config = configCenterService.getConfig(pluginsDataId, GatewayStrategyConfig.class);
             if (config != null && config.getPlugins() != null) {
                 this.pluginCache = config.getPlugins();
                 log.info("Loaded strategy config from Nacos: {} rate limiters", pluginCache.getRateLimiters().size());
             } else {
                 log.info("No strategy config found in Nacos, using empty config");
-                this.pluginCache = new PluginConfig();
+                this.pluginCache = new StrategyConfig();
             }
         } catch (Exception e) {
             log.error("Error loading strategies from Nacos", e);
-            this.pluginCache = new PluginConfig();
+            this.pluginCache = new StrategyConfig();
         }
     }
 
@@ -479,7 +479,7 @@ public class StrategyService {
         removeAuthConfig(config.getRouteId());
         pluginCache.getAuthConfigs().add(config);
         log.info("Created auth config for route {}: type={}", config.getRouteId(), config.getAuthType());
-        return publishAndSave(new GatewayPluginsConfig(pluginCache));
+        return publishAndSave(new GatewayStrategyConfig("1.0", pluginCache));
     }
 
     /**
@@ -498,7 +498,7 @@ public class StrategyService {
             pluginCache.getAuthConfigs().remove(existing.get());
             pluginCache.getAuthConfigs().add(config);
             log.info("Updated auth config for route {}: type={}", config.getRouteId(), config.getAuthType());
-            return publishAndSave(new GatewayPluginsConfig(pluginCache));
+            return publishAndSave(new GatewayStrategyConfig("1.0", pluginCache));
         }
 
         return false;
@@ -513,7 +513,7 @@ public class StrategyService {
             if (list.get(i).getRouteId().equals(routeId)) {
                 list.remove(i);
                 log.info("Removed auth config for route: {}", routeId);
-                return publishAndSave(new GatewayPluginsConfig(pluginCache));
+                return publishAndSave(new GatewayStrategyConfig("1.0", pluginCache));
             }
         }
         return false;
@@ -526,19 +526,19 @@ public class StrategyService {
         StrategyStats stats = new StrategyStats();
         stats.setRateLimiterCount(pluginCache.getRateLimiters().size());
         stats.setEnabledRateLimiters((int) pluginCache.getRateLimiters().stream()
-                .filter(PluginConfig.RateLimiterConfig::isEnabled).count());
+                .filter(StrategyConfig.RateLimiterConfig::isEnabled).count());
         stats.setTimeoutCount(pluginCache.getTimeouts().size());
         stats.setEnabledTimeouts((int) pluginCache.getTimeouts().stream()
-                .filter(PluginConfig.TimeoutConfig::isEnabled).count());
+                .filter(StrategyConfig.TimeoutConfig::isEnabled).count());
         stats.setAuthCount(pluginCache.getAuthConfigs().size());
         stats.setEnabledAuths((int) pluginCache.getAuthConfigs().stream()
                 .filter(AuthConfig::isEnabled).count());
         stats.setCircuitBreakerCount(pluginCache.getCircuitBreakers().size());
         stats.setEnabledCircuitBreakers((int) pluginCache.getCircuitBreakers().stream()
-                .filter(PluginConfig.CircuitBreakerConfig::isEnabled).count());
+                .filter(StrategyConfig.CircuitBreakerConfig::isEnabled).count());
         stats.setIpFilterCount(pluginCache.getIpFilters().size());
         stats.setEnabledIpFilters((int) pluginCache.getIpFilters().stream()
-                .filter(PluginConfig.IPFilterConfig::isEnabled).count());
+                .filter(StrategyConfig.IPFilterConfig::isEnabled).count());
         return stats;
     }
 
@@ -562,7 +562,7 @@ public class StrategyService {
     /**
      * Publish to Nacos and save snapshot to H2 database.
      */
-    private boolean publishAndSave(GatewayPluginsConfig config) {
+    private boolean publishAndSave(GatewayStrategyConfig config) {
         boolean result = publisher.publish(config);
         if (result) {
             saveToDatabase();
@@ -576,12 +576,17 @@ public class StrategyService {
     private void saveToDatabase() {
         try {
             String json = objectMapper.writeValueAsString(pluginCache);
-            // Use a fixed ID to upsert the single snapshot row
-            Optional<StrategyEntity> existing = strategyRepository.findById("__snapshot__");
-            StrategyEntity entity = existing.orElseGet(StrategyEntity::new);
-            entity.setId("__snapshot__");
-            entity.setStrategyType("SNAPSHOT");
-            entity.setConfig(json);
+            // Find existing snapshot by routeId field
+            List<StrategyEntity> snapshots = strategyRepository.findByStrategyId("__snapshot__");
+            StrategyEntity entity;
+            if (snapshots.isEmpty()) {
+                entity = new StrategyEntity();
+                entity.setStrategyName("config-snapshot");
+            } else {
+                entity = snapshots.get(0);
+            }
+            // Store complete configuration in metadata field
+            entity.setMetadata(json);
             entity.setEnabled(true);
             strategyRepository.save(entity);
             log.debug("Strategy snapshot saved to database");

@@ -12,9 +12,17 @@ import java.util.List;
  * @author leoli
  */
 @Repository
-public interface StrategyRepository extends JpaRepository<StrategyEntity, String> {
+public interface StrategyRepository extends JpaRepository<StrategyEntity, Long> {
+
+    /**
+     * Find strategy by business strategy name.
+     */
+    StrategyEntity findByStrategyName(String strategyName);
 
     List<StrategyEntity> findByEnabledTrue();
-
-    List<StrategyEntity> findByRouteId(String routeId);
+    
+    /**
+     * Find strategies by strategy ID (UUID).
+     */
+    List<StrategyEntity> findByStrategyId(String strategyId);
 }

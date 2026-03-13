@@ -1,6 +1,7 @@
 package com.example.gatewayadmin.controller;
 
 import com.example.gatewayadmin.model.RouteDefinition;
+import com.example.gatewayadmin.model.RouteResponse;
 import com.example.gatewayadmin.service.RouteService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +30,7 @@ public class RouteController {
      */
     @GetMapping
     public ResponseEntity<Map<String, Object>> getAllRoutes() {
-        List<RouteDefinition> routes = routeService.getAllRoutes();
+        List<RouteResponse> routes = routeService.getAllRoutes();
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("message", "success");
@@ -85,26 +86,24 @@ public class RouteController {
     }
 
     /**
-     * Update a route.
+     * Update a route by route_id (UUID).
      */
     @PutMapping("/{id}")
     public ResponseEntity<Map<String, Object>> updateRoute(@PathVariable String id, 
                                                            @RequestBody RouteDefinition route) {
         try {
             log.info("Updating route: {}", id);
-            Long longId = Long.valueOf(id);
-            routeService.updateRoute(longId, route);
+            // Validate UUID format
+            if (!isValidUUID(id)) {
+                throw new IllegalArgumentException("Invalid route ID format: " + id);
+            }
+            // Use route_id (UUID) for update
+            routeService.updateRouteByRouteId(id, route);
             Map<String, Object> result = new HashMap<>();
             result.put("code", 200);
             result.put("message", "Route updated successfully");
             result.put("data", route);
             return ResponseEntity.ok(result);
-        } catch (NumberFormatException e) {
-            log.warn("Invalid route ID format: {}", id);
-            Map<String, Object> result = new HashMap<>();
-            result.put("code", 400);
-            result.put("message", "Invalid route ID format");
-            return ResponseEntity.badRequest().body(result);
         } catch (IllegalArgumentException e) {
             log.warn("Failed to update route: {}", e.getMessage());
             Map<String, Object> result = new HashMap<>();
@@ -121,24 +120,22 @@ public class RouteController {
     }
 
     /**
-     * Delete a route.
+     * Delete a route by route_id (UUID).
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, Object>> deleteRoute(@PathVariable String id) {
         try {
             log.info("Deleting route: {}", id);
-            Long longId = Long.valueOf(id);
-            routeService.deleteRoute(longId);
+            // Validate UUID format
+            if (!isValidUUID(id)) {
+                throw new IllegalArgumentException("Invalid route ID format: " + id);
+            }
+            // Delete by route_id
+            routeService.deleteRouteByRouteId(id);
             Map<String, Object> result = new HashMap<>();
             result.put("code", 200);
             result.put("message", "Route deleted successfully");
             return ResponseEntity.ok(result);
-        } catch (NumberFormatException e) {
-            log.warn("Invalid route ID format: {}", id);
-            Map<String, Object> result = new HashMap<>();
-            result.put("code", 400);
-            result.put("message", "Invalid route ID format");
-            return ResponseEntity.badRequest().body(result);
         } catch (IllegalArgumentException e) {
             log.warn("Failed to delete route: {}", e.getMessage());
             Map<String, Object> result = new HashMap<>();
@@ -151,6 +148,75 @@ public class RouteController {
             result.put("code", 500);
             result.put("message", "Failed to delete route: " + e.getMessage());
             return ResponseEntity.status(500).body(result);
+        }
+    }
+
+    /**
+     * Enable a route by route_id (UUID).
+     */
+    @PostMapping("/{id}/enable")
+    public ResponseEntity<Map<String, Object>> enableRoute(@PathVariable String id) {
+        try {
+            log.info("Enabling route: {}", id);
+            if (!isValidUUID(id)) {
+                throw new IllegalArgumentException("Invalid route ID format: " + id);
+            }
+            routeService.enableRouteByRouteId(id);
+            Map<String, Object> result = new HashMap<>();
+            result.put("code", 200);
+            result.put("message", "Route enabled successfully");
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            log.warn("Failed to enable route: {}", e.getMessage());
+            Map<String, Object> result = new HashMap<>();
+            result.put("code", 404);
+            result.put("message", e.getMessage());
+            return ResponseEntity.status(404).body(result);
+        } catch (Exception e) {
+            log.error("Failed to enable route", e);
+            Map<String, Object> result = new HashMap<>();
+            result.put("code", 500);
+            result.put("message", "Failed to enable route: " + e.getMessage());
+            return ResponseEntity.status(500).body(result);
+        }
+    }
+
+    /**
+     * Disable a route by route_id (UUID).
+     */
+    @PostMapping("/{id}/disable")
+    public ResponseEntity<Map<String, Object>> disableRoute(@PathVariable String id) {
+        try {
+            log.info("Disabling route: {}", id);
+            if (!isValidUUID(id)) {
+                throw new IllegalArgumentException("Invalid route ID format: " + id);
+            }
+            routeService.disableRouteByRouteId(id);
+            Map<String, Object> result = new HashMap<>();
+            result.put("code", 200);
+            result.put("message", "Route disabled successfully");
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            log.warn("Failed to disable route: {}", e.getMessage());
+            Map<String, Object> result = new HashMap<>();
+            result.put("code", 404);
+            result.put("message", e.getMessage());
+            return ResponseEntity.status(404).body(result);
+        } catch (Exception e) {
+            log.error("Failed to disable route", e);
+            Map<String, Object> result = new HashMap<>();
+            result.put("code", 500);
+            result.put("message", "Failed to disable route: " + e.getMessage());
+            return ResponseEntity.status(500).body(result);
+        }
+    }
+    
+    private boolean isValidUUID(String uuid) {
+        try {
+            java.util.UUID.fromString(uuid);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
         }
     }
 

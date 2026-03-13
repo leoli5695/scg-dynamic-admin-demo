@@ -33,20 +33,12 @@ public class RouteEntity {
     @Column(name = "route_id", length = 255)
     private String routeId;
     
-    @Column(nullable = false, length = 1024)
-    private String uri;
-    
-    @Column(columnDefinition = "TEXT")
-    private String predicates;
-    
-    @Column(columnDefinition = "TEXT")
-    private String filters;
-    
+    /**
+     * Complete configuration as JSON backup.
+     * Contains: id, uri, predicates, filters, metadata, order, etc.
+     */
     @Column(columnDefinition = "TEXT")
     private String metadata;
-    
-    @Column(name = "order_num", columnDefinition = "INT DEFAULT 0")
-    private Integer orderNum;
     
     @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
     private Boolean enabled;

@@ -18,30 +18,25 @@ import java.time.LocalDateTime;
 public class ServiceEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private String id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
     
-    @Column(nullable = false, length = 255)
-    private String name;
-    
-    @Column(name = "service_name", nullable = false, length = 255)
+    /**
+     * Business service name (e.g., "user-service"), used in Nacos config key.
+     */
+    @Column(name = "service_name", nullable = false, unique = true, length = 255)
     private String serviceName;
     
-    @Column(length = 1024)
-    private String uri;
+    /**
+     * Service ID (UUID), kept for backward compatibility.
+     */
+    @Column(name = "service_id", length = 255)
+    private String serviceId;
     
-    @Column(length = 255)
-    private String host;
-    
-    @Column
-    private Integer port;
-    
-    @Column(name = "load_balancer", length = 50, columnDefinition = "VARCHAR(50) DEFAULT 'round_robin'")
-    private String loadBalancer;
-    
-    @Column(name = "health_check_url", length = 1024)
-    private String healthCheckUrl;
-    
+    /**
+     * Complete configuration as JSON backup.
+     * Contains: name, description, instances, loadBalancer, metadata, etc.
+     */
     @Column(columnDefinition = "TEXT")
     private String metadata;
     

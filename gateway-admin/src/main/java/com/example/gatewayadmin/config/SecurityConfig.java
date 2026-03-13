@@ -48,12 +48,14 @@ public class SecurityConfig {
                         // Public endpoints
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
-                        // API endpoints (for development, disable authentication)
+                        // API endpoints - temporarily disable authentication for development
                         .requestMatchers("/api/**").permitAll()
                         // Static resources
                         .requestMatchers("/", "/index.html", "/static/**", "/favicon.ico").permitAll()
                         // Actuator endpoints
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        // H2 console
+                        .requestMatchers("/h2-console/**").permitAll()
                         // All other requests require authentication
                         .anyRequest().authenticated()
                 )

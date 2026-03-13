@@ -12,9 +12,12 @@ import java.util.List;
  * @author leoli
  */
 @Repository
-public interface ServiceRepository extends JpaRepository<ServiceEntity, String> {
+public interface ServiceRepository extends JpaRepository<ServiceEntity, Long> {
+
+    /**
+     * Find service by business service name.
+     */
+    ServiceEntity findByServiceName(String serviceName);
 
     List<ServiceEntity> findByEnabledTrue();
-
-    ServiceEntity findByName(String name);
 }

@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -46,15 +47,13 @@ public class RouteReconcileTask implements ReconcileTask<RouteEntity> {
     @Override
     public Set<String> loadFromNacos() {
         try {
-            // Get raw string config first
-            String indexContent = configCenterService.getConfig(ROUTES_INDEX, String.class);
-            if (indexContent == null || indexContent.isBlank()) {
+            // Read as List<String> since index is stored as JSON array
+            List<String> routeNames = configCenterService.getConfig(ROUTES_INDEX, 
+                new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+            if (routeNames == null || routeNames.isEmpty()) {
                 return Set.of();
             }
-            return objectMapper.readValue(indexContent, 
-                new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {})
-                .stream()
-                .collect(Collectors.toSet());
+            return routeNames.stream().collect(Collectors.toSet());
         } catch (Exception e) {
             log.error("Failed to load routes index from Nacos", e);
             return Set.of();
@@ -63,39 +62,48 @@ public class RouteReconcileTask implements ReconcileTask<RouteEntity> {
     
     @Override
     public String extractId(RouteEntity entity) {
-        return entity.getRouteName();  // Use routeName as business identifier
+        return entity.getRouteId();  // Use route_id (UUID) as business identifier
     }
     
     @Override
     public void repairMissingInNacos(RouteEntity entity) throws Exception {
-        log.info("🔧 Repairing missing route in Nacos: {}", entity.getRouteName());
+        log.info("🔧 Repairing missing route in Nacos: {}", entity.getRouteId());
         
-        // Convert entity to RouteDefinition
-        RouteDefinition route = new RouteDefinition();
-        route.setId(entity.getRouteName());
-        route.setUri(entity.getUri());
-        route.setOrder(entity.getOrderNum());
+        // Restore from metadata JSON if available, otherwise create minimal definition
+        RouteDefinition route = null;
+        if (entity.getMetadata() != null && !entity.getMetadata().isEmpty()) {
+            try {
+                route = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readValue(entity.getMetadata(), RouteDefinition.class);
+            } catch (Exception e) {
+                log.warn("Failed to deserialize route config, using fallback", e);
+            }
+        }
         
-        // Push to Nacos
-        String routeDataId = ROUTE_PREFIX + entity.getRouteName();
-        String routeJson = objectMapper.writeValueAsString(route);
+        if (route == null) {
+            route = new RouteDefinition();
+            route.setId(entity.getRouteName());
+        }
+        
+        // Push to Nacos using route_id
+        String routeDataId = ROUTE_PREFIX + entity.getRouteId();
         configCenterService.publishConfig(routeDataId, route);
         
-        log.info("✅ Repaired route: {}", entity.getRouteName());
+        log.info("✅ Repaired route: {}", entity.getRouteId());
         
         // Rebuild routes index to ensure consistency
         rebuildRoutesIndex();
     }
     
     @Override
-    public void removeOrphanFromNacos(String entityId) throws Exception {
-        log.info("🗑️  Removing orphaned route from Nacos: {}", entityId);
+    public void removeOrphanFromNacos(String routeId) throws Exception {
+        log.info("🗑️  Removing orphaned route from Nacos: {}", routeId);
         
-        // Push empty string to Nacos (delete operation)
-        String routeDataId = ROUTE_PREFIX + entityId;
-        configCenterService.publishConfig(routeDataId, "");
+        // Delete from Nacos using route_id
+        String routeDataId = ROUTE_PREFIX + routeId;
+        configCenterService.removeConfig(routeDataId);
         
-        log.info("✅ Removed orphan route: {}", entityId);
+        log.info("✅ Removed orphan route: {}", routeId);
         
         // Rebuild routes index after removal
         rebuildRoutesIndex();
@@ -105,12 +113,13 @@ public class RouteReconcileTask implements ReconcileTask<RouteEntity> {
      * Rebuild routes index from database.
      */
     private void rebuildRoutesIndex() throws Exception {
+        // Use route_id (UUID) instead of routeName for consistency
         List<String> routeIds = routeRepository.findAll().stream()
-            .map(RouteEntity::getRouteName)
+            .map(RouteEntity::getRouteId)  // Use routeId, not routeName
             .collect(Collectors.toList());
         
-        String indexJson = objectMapper.writeValueAsString(routeIds);
-        configCenterService.publishConfig(ROUTES_INDEX, indexJson);
+        // Publish as JSON array directly, not stringified JSON
+        configCenterService.publishConfig(ROUTES_INDEX, routeIds);
         log.debug("Routes index rebuilt with {} routes", routeIds.size());
     }
 }

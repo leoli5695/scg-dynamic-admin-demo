@@ -1,6 +1,6 @@
 package com.example.gatewayadmin.controller;
 
-import com.example.gatewayadmin.model.PluginConfig;
+import com.example.gatewayadmin.model.StrategyConfig;
 import com.example.gatewayadmin.service.StrategyService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,7 +33,7 @@ public class StrategyController {
      */
     @GetMapping("/rate-limiters")
     public ResponseEntity<Map<String, Object>> getAllRateLimiters() {
-        List<PluginConfig.RateLimiterConfig> configs = strategyService.getAllRateLimiters();
+        List<StrategyConfig.RateLimiterConfig> configs = strategyService.getAllRateLimiters();
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("message", "success");
@@ -46,7 +46,7 @@ public class StrategyController {
      */
     @GetMapping("/rate-limiters/{routeId}")
     public ResponseEntity<Map<String, Object>> getRateLimiterByRouteId(@PathVariable String routeId) {
-        PluginConfig.RateLimiterConfig config = strategyService.getRateLimiterByRouteId(routeId);
+        StrategyConfig.RateLimiterConfig config = strategyService.getRateLimiterByRouteId(routeId);
         Map<String, Object> result = new HashMap<>();
         if (config != null) {
             result.put("code", 200);
@@ -64,7 +64,7 @@ public class StrategyController {
      * Create rate limiter configuration.
      */
     @PostMapping("/rate-limiters")
-    public ResponseEntity<Map<String, Object>> createRateLimiter(@RequestBody PluginConfig.RateLimiterConfig config) {
+    public ResponseEntity<Map<String, Object>> createRateLimiter(@RequestBody StrategyConfig.RateLimiterConfig config) {
         log.info("Creating rate limiter strategy for route: {}", config.getRouteId());
         boolean success = strategyService.createRateLimiter(config);
         Map<String, Object> result = new HashMap<>();
@@ -86,7 +86,7 @@ public class StrategyController {
     @PutMapping("/rate-limiters/{routeId}")
     public ResponseEntity<Map<String, Object>> updateRateLimiter(
             @PathVariable String routeId,
-            @RequestBody PluginConfig.RateLimiterConfig config) {
+            @RequestBody StrategyConfig.RateLimiterConfig config) {
         log.info("Updating rate limiter strategy for route: {}", routeId);
         boolean success = strategyService.updateRateLimiter(routeId, config);
         Map<String, Object> result = new HashMap<>();
@@ -131,7 +131,7 @@ public class StrategyController {
      */
     @GetMapping("/ip-filters")
     public ResponseEntity<Map<String, Object>> getAllIPFilters() {
-        List<PluginConfig.IPFilterConfig> configs = strategyService.getAllIPFilters();
+        List<StrategyConfig.IPFilterConfig> configs = strategyService.getAllIPFilters();
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("message", "success");
@@ -144,7 +144,7 @@ public class StrategyController {
      */
     @GetMapping("/ip-filters/{routeId}")
     public ResponseEntity<Map<String, Object>> getIPFilterByRoute(@PathVariable String routeId) {
-        PluginConfig.IPFilterConfig config = strategyService.getIPFilterByRoute(routeId);
+        StrategyConfig.IPFilterConfig config = strategyService.getIPFilterByRoute(routeId);
         Map<String, Object> result = new HashMap<>();
         if (config != null) {
             result.put("code", 200);
@@ -162,7 +162,7 @@ public class StrategyController {
      * Create IP filter configuration.
      */
     @PostMapping("/ip-filters")
-    public ResponseEntity<Map<String, Object>> createIPFilter(@RequestBody PluginConfig.IPFilterConfig config) {
+    public ResponseEntity<Map<String, Object>> createIPFilter(@RequestBody StrategyConfig.IPFilterConfig config) {
         log.info("Creating IP filter strategy for route: {}", config.getRouteId());
         boolean success = strategyService.createIPFilter(config);
         Map<String, Object> result = new HashMap<>();
@@ -184,7 +184,7 @@ public class StrategyController {
     @PutMapping("/ip-filters/{routeId}")
     public ResponseEntity<Map<String, Object>> updateIPFilter(
             @PathVariable String routeId,
-            @RequestBody PluginConfig.IPFilterConfig config) {
+            @RequestBody StrategyConfig.IPFilterConfig config) {
         log.info("Updating IP filter strategy for route: {}", routeId);
         boolean success = strategyService.updateIPFilter(routeId, config);
         Map<String, Object> result = new HashMap<>();
@@ -226,7 +226,7 @@ public class StrategyController {
      */
     @GetMapping("/timeouts")
     public ResponseEntity<Map<String, Object>> getAllTimeouts() {
-        List<PluginConfig.TimeoutConfig> timeouts = strategyService.getAllTimeouts();
+        List<StrategyConfig.TimeoutConfig> timeouts = strategyService.getAllTimeouts();
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("message", "success");
@@ -239,7 +239,7 @@ public class StrategyController {
      */
     @GetMapping("/timeouts/{routeId}")
     public ResponseEntity<Map<String, Object>> getTimeoutByRoute(@PathVariable String routeId) {
-        PluginConfig.TimeoutConfig config = strategyService.getTimeoutByRoute(routeId);
+        StrategyConfig.TimeoutConfig config = strategyService.getTimeoutByRoute(routeId);
         Map<String, Object> result = new HashMap<>();
         if (config != null) {
             result.put("code", 200);
@@ -257,7 +257,7 @@ public class StrategyController {
      * Create timeout configuration.
      */
     @PostMapping("/timeouts")
-    public ResponseEntity<Map<String, Object>> createTimeout(@RequestBody PluginConfig.TimeoutConfig config) {
+    public ResponseEntity<Map<String, Object>> createTimeout(@RequestBody StrategyConfig.TimeoutConfig config) {
         log.info("Creating timeout strategy for route: {}", config.getRouteId());
         boolean success = strategyService.createTimeout(config);
         Map<String, Object> result = new HashMap<>();
@@ -279,7 +279,7 @@ public class StrategyController {
     @PutMapping("/timeouts/{routeId}")
     public ResponseEntity<Map<String, Object>> updateTimeout(
             @PathVariable String routeId,
-            @RequestBody PluginConfig.TimeoutConfig config) {
+            @RequestBody StrategyConfig.TimeoutConfig config) {
         log.info("Updating timeout strategy for route: {}", routeId);
         boolean success = strategyService.updateTimeout(routeId, config);
         Map<String, Object> result = new HashMap<>();
@@ -321,7 +321,7 @@ public class StrategyController {
      */
     @GetMapping("/circuit-breakers")
     public ResponseEntity<Map<String, Object>> getAllCircuitBreakers() {
-        List<PluginConfig.CircuitBreakerConfig> configs = strategyService.getAllCircuitBreakers();
+        List<StrategyConfig.CircuitBreakerConfig> configs = strategyService.getAllCircuitBreakers();
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("message", "success");
@@ -334,7 +334,7 @@ public class StrategyController {
      */
     @GetMapping("/circuit-breakers/{routeId}")
     public ResponseEntity<Map<String, Object>> getCircuitBreakerByRoute(@PathVariable String routeId) {
-        PluginConfig.CircuitBreakerConfig config = strategyService.getCircuitBreakerByRoute(routeId);
+        StrategyConfig.CircuitBreakerConfig config = strategyService.getCircuitBreakerByRoute(routeId);
         Map<String, Object> result = new HashMap<>();
         if (config != null) {
             result.put("code", 200);
@@ -352,7 +352,7 @@ public class StrategyController {
      * Create circuit breaker configuration.
      */
     @PostMapping("/circuit-breakers")
-    public ResponseEntity<Map<String, Object>> createCircuitBreaker(@RequestBody PluginConfig.CircuitBreakerConfig config) {
+    public ResponseEntity<Map<String, Object>> createCircuitBreaker(@RequestBody StrategyConfig.CircuitBreakerConfig config) {
         log.info("Creating circuit breaker strategy for route: {}", config.getRouteId());
         boolean success = strategyService.createCircuitBreaker(config);
         Map<String, Object> result = new HashMap<>();
@@ -374,7 +374,7 @@ public class StrategyController {
     @PutMapping("/circuit-breakers/{routeId}")
     public ResponseEntity<Map<String, Object>> updateCircuitBreaker(
             @PathVariable String routeId,
-            @RequestBody PluginConfig.CircuitBreakerConfig config) {
+            @RequestBody StrategyConfig.CircuitBreakerConfig config) {
         log.info("Updating circuit breaker strategy for route: {}", routeId);
         boolean success = strategyService.updateCircuitBreaker(routeId, config);
         Map<String, Object> result = new HashMap<>();
@@ -416,7 +416,7 @@ public class StrategyController {
      */
     @GetMapping
     public ResponseEntity<Map<String, Object>> getAllStrategies() {
-        PluginConfig plugins = strategyService.getAllPlugins();
+        StrategyConfig plugins = strategyService.getAllPlugins();
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("message", "success");
@@ -428,7 +428,7 @@ public class StrategyController {
      * Batch update strategy configurations.
      */
     @PostMapping("/batch")
-    public ResponseEntity<Map<String, Object>> batchUpdateStrategies(@RequestBody PluginConfig plugins) {
+    public ResponseEntity<Map<String, Object>> batchUpdateStrategies(@RequestBody StrategyConfig plugins) {
         log.info("Batch updating strategy config");
         boolean success = strategyService.batchUpdatePlugins(plugins);
         Map<String, Object> result = new HashMap<>();
