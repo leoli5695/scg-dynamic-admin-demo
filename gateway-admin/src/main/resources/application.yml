@@ -57,8 +57,9 @@ gateway:
     type: nacos  # default config center type, can be 'nacos' or 'consul'
   admin:
     jwt:
-      secret: ${GATEWAY_ADMIN_JWT_SECRET:mySecretKeyForJWTTokenGenerationWhichMustBeLongEnoughAndSecure}
+      secret: ${GATEWAY_ADMIN_JWT_SECRET:LeoliGatewayAdminSecretKey2026WhichMustBeLongEnoughAndSecureForProductionUse}
       expiration: 86400000  # 24 hours in milliseconds
+      enabled: true  # ✅ Enable JWT for production
   consul:
     host: 127.0.0.1
     port: 8500
@@ -68,10 +69,15 @@ gateway:
       # Note: Services use incremental format now (not configured here)
       plugins: gateway-plugins.json    # Full plugin strategies config
       # Routes use incremental format with route_id UUID:
-      # - config.gateway.routes-{routeId} (e.g., config.gateway.routes-a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11)
+      #   Example: config.gateway.routes-a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11
       # Services use incremental format with service_id UUID:
-      # - config.gateway.services-{serviceId} (e.g., config.gateway.services-f47ac10b-58cc-4372-a567-0e02b2c3d479)
+      #   Example: config.gateway.services-f47ac10b-58cc-4372-a567-0e02b2c3d479
     group: DEFAULT_GROUP
+  
+  # Health Check Configuration
+  health:
+    db-sync-enabled: true       # ✅ Enable database persistence
+    nacos-sync-enabled: false   # Disable Nacos sync for now
 
 management:
   endpoints:

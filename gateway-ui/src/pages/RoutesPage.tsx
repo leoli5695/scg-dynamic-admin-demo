@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Table, Button, Space, Modal, message, Typography, Spin, Tag, Drawer, Form, Input, Switch, Card, Descriptions, Select, Empty, Radio, Tooltip } from 'antd';
-import { PlusOutlined, DeleteOutlined, EyeOutlined, CopyOutlined, StopOutlined, PlayCircleOutlined, EditOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, EyeOutlined, CopyOutlined, StopOutlined, PlayCircleOutlined, EditOutlined, CompassOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import api from '../utils/api';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +23,7 @@ interface Route {
 
 interface Service {
   name: string;
+  serviceId: string;
   loadBalancer: string;
   instances?: any[];
 }
@@ -885,12 +886,13 @@ const RoutesPage: React.FC = () => {
             locale={{
               emptyText: (
                 <Empty 
-                  description={t('routes.empty_description')}
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={<span style={{ fontSize: '14px', color: '#64748B' }}>{t('routes.empty_description')}</span>}
+                  image={<CompassOutlined style={{ fontSize: 64, color: '#CBD5E1' }} />}
                 >
                   <Button 
                     type="primary" 
                     icon={<PlusOutlined />}
+                    size="large"
                     onClick={() => setCreateDrawerVisible(true)}
                   >
                     {t('routes.create_first')}
@@ -1000,8 +1002,8 @@ const RoutesPage: React.FC = () => {
                   }}
                 >
                   {services.map(s => (
-                    <Select.Option key={s.name} value={s.name}>
-                      {s.name} ({s.loadBalancer})
+                    <Select.Option key={s.serviceId} value={s.serviceId}>
+                      {s.serviceId} ({s.name})
                     </Select.Option>
                   ))}
                 </Select>
@@ -1213,8 +1215,8 @@ const RoutesPage: React.FC = () => {
                   }}
                 >
                   {services.map(s => (
-                    <Select.Option key={s.name} value={s.name}>
-                      {s.name} ({s.loadBalancer})
+                    <Select.Option key={s.serviceId} value={s.serviceId}>
+                      {s.serviceId} ({s.name})
                     </Select.Option>
                   ))}
                 </Select>

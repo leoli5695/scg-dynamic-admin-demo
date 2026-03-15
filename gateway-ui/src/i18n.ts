@@ -1,4 +1,4 @@
-import i18n from 'i18next';
+﻿import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
@@ -89,24 +89,22 @@ const resources = {
       'plugin.RewritePath.desc': 'Rewrite request path using regular expression',
       'plugin.SetPath.desc': 'Set request path (supports URI variables)',
       'plugin.SetStatus.desc': 'Set HTTP status code for response',
-      // Route Plugin Detailed Descriptions
-      'plugin.AddRequestHeader.detail': 'Add custom HTTP headers to requests passing through this route. Examples: authentication info, tracing IDs, or custom metadata. Supports static values and dynamic expressions.',
-      'plugin.SetRequestHeader.detail': 'Set (replace) HTTP headers in downstream requests. Replaces existing header values or adds new ones. Used to override client-provided headers.',
-      'plugin.RemoveRequestHeader.detail': 'Remove specified HTTP headers from downstream requests. Commonly used to remove sensitive headers (e.g., Cookies) or clean up unwanted headers.',
-      'plugin.AddRequestParameter.detail': 'Add query parameters to request URLs passing through this route. Suitable for adding tenant IDs, API versions, or other common parameters.',
-      'plugin.RemoveRequestParameter.detail': 'Remove specified query parameters from request URLs. Used to clean up sensitive parameters or standardize request formats.',
-      'plugin.AddResponseHeader.detail': 'Add custom HTTP headers to client responses. Can be used for security headers, performance metrics, or debugging information.',
-      'plugin.SetResponseHeader.detail': 'Set (replace) HTTP response headers returned to clients. Used to modify or standardize response header information.',
-      'plugin.RemoveResponseHeader.detail': 'Remove specified HTTP headers from client responses. Commonly used to remove server information or sensitive headers.',
-      'plugin.StripPrefix.detail': 'Strip specified number of prefix segments from request paths. Example: /api/v1/users → /users (strips 2 levels). Useful for API versioning scenarios.',
-      'plugin.PrefixPath.detail': 'Add a fixed prefix to request paths. Example: /users → /api/v1/users. Used to standardize API path conventions.',
-      'plugin.RewritePath.detail': 'Rewrite request paths using Java regular expressions. Supports capture groups and backreferences. Powerful path transformation tool for complex routing scenarios.',
-      'plugin.SetPath.detail': 'Completely replace the request path. Supports URI template variables (e.g., {segment}). Used to fundamentally change the target path of requests.',
-      'plugin.SetStatus.detail': 'Set HTTP status codes returned to clients. Used to customize response status, such as changing 404 to 200 or success to specific states.',
+      
+      // Menu
+      
+      // Menu
+      'menu.services': '服务',
+      'menu.routes': '路由',
+      'menu.strategies': '策略',
+      
       'routes.basic_info': 'Basic Information',
       'routes.route_id_label': 'Route ID',
+      'routes.route_name': 'Route Name',
+      'routes.route_name_label': 'Route Name',
       'routes.route_id_helper': 'Unique identifier for this route (e.g., user-route)',
+      'routes.route_name_helper': 'Business name for this route (e.g., User Service Route)',
       'routes.route_id_placeholder': 'e.g. user-route',
+      'routes.route_name_placeholder': 'e.g. User Service Route',
       'routes.order_helper': 'Route priority (lower number = higher priority)',
       'routes.description_label': 'Description',
       'routes.target_configuration': 'Target Configuration',
@@ -146,6 +144,7 @@ const resources = {
       'services.warning_all_disabled': '⚠️ All nodes are disabled. This will cause route invocation failures. Please enable at least one service node.',
       'services.weight_label': 'Weight:',
       'services.no_instances': 'No instances',
+      'services.actions': 'Actions',
       'services.name_required': 'Please enter service name',
       'services.name_helper': 'Unique service identifier',
       'services.name_placeholder': 'e.g., user-service',
@@ -200,6 +199,28 @@ const resources = {
       'strategies.waitDurationInOpenState_required': 'Please enter wait duration in open state',
       'strategies.waitDurationInOpenState_placeholder': 'e.g., 30000',
       
+      // Strategies Page - Premium English Labels
+      'strategies.page_title': 'Policy Management',
+      'strategies.page_subtitle': 'Manage rate limiting, IP filtering, timeout, circuit breaker and other service governance policies',
+      'strategies.tab_rate_limiter': 'Rate Limiter',
+      'strategies.tab_ip_filter': 'IP Filter',
+      'strategies.tab_timeout': 'Timeout',
+      'strategies.tab_circuit_breaker': 'Circuit Breaker',
+      'strategies.tab_tracing': 'Tracing',
+      'strategies.tab_auth': 'Authentication',
+      'strategies.empty_description': 'No policy data yet',
+      'strategies.create_first_button': '+ Create Your First Policy',
+      'strategies.create_policy_button': '+ Create Policy',
+      'strategies.col_route_id': 'Route ID',
+      'strategies.col_status': 'Status',
+      'strategies.col_rate_limit': 'Rate Limit',
+      'strategies.col_actions': 'Actions',
+      'strategies.status_active': 'Active',
+      'strategies.status_inactive': 'Inactive',
+      'strategies.btn_view': 'View',
+      'strategies.btn_edit': 'Edit',
+      'strategies.btn_delete': 'Delete',
+      
       // Messages
       'message.confirm_delete': 'Are you sure you want to delete this item?',
       'message.confirm_delete_service': 'Are you sure you want to delete service "{{name}}"?',
@@ -245,6 +266,11 @@ const resources = {
       'common.online': 'Online',
       'common.healthy': 'Healthy',
       'common.unhealthy': 'Unhealthy',
+      
+      // App Header
+      'app.title': 'API Gateway',
+      'app.subtitle': 'Unified Management Platform',
+      'app.console_title': 'API Gateway Console',
       'routes.search_placeholder': 'Search Route ID/name/URI',
       'routes.status_filter_placeholder': 'Filter by status',
       'routes.description_helper': 'Manage API gateway routing rules, including predicates, filters, and service forwarding configurations',
@@ -256,22 +282,19 @@ const resources = {
       'services.empty_description': 'No service data',
       'services.create_first': 'Create first service',
       'strategies.description_helper': 'Manage rate limiting, IP filtering, timeout, circuit breaking and other service governance strategies',
-      'strategies.empty_description': 'No strategy data',
-      'strategies.create_first': 'Create first strategy',
       
       // Login
-      'login.title': '网关控制台',
-      'login.subtitle': 'API Gateway 统一管理平台',
-      'login.username_placeholder': '请输入用户名',
-      'login.password_placeholder': '请输入密码',
-      'login.button': '登 录',
-      'login.username_required': '请输入用户名',
-      'login.username_min_length': '用户名至少 3 个字符',
-      'login.password_required': '请输入密码',
-      'login.password_min_length': '密码至少 6 个字符',
-      'login.success': '欢迎回来，{{nickname}}！',
-      'login.failed': '用户名或密码错误',
-      'login.default_credentials': '默认账号：admin / Admin123456',
+      'login.title': 'API Gateway Console',
+      'login.username_placeholder': 'Username',
+      'login.password_placeholder': 'Password',
+      'login.button': 'Sign In',
+      'login.username_required': 'Please enter username',
+      'login.username_min_length': 'Username must be at least 3 characters',
+      'login.password_required': 'Please enter password',
+      'login.password_min_length': 'Password must be at least 6 characters',
+      'login.success': 'Welcome back, {{nickname}}!',
+      'login.failed': 'Invalid username or password',
+      'login.default_credentials': 'Default account: admin / Admin123456',
     },
   },
   zh: {
@@ -374,9 +397,18 @@ const resources = {
       'plugin.RewritePath.detail': '使用 Java 正则表达式重写请求路径。支持捕获组和反向引用。强大的路径转换工具，适用于复杂的路由映射场景。',
       'plugin.SetPath.detail': '完全替换请求路径。支持 URI 模板变量 (如 {segment})。用于彻底改变请求的目标路径。',
       'plugin.SetStatus.detail': '设置返回给客户端的 HTTP 状态码。用于自定义响应状态，如将 404 改为 200 或将成功改为特定状态。',
+      
+      // Menu
+      'menu.services': '服务',
+      'menu.routes': '路由',
+      'menu.strategies': '策略',
+      
       'routes.basic_info': '基本信息',
       'routes.route_id_label': '路由 ID',
+      'routes.route_name_label': '路由名称',
+      'routes.route_name': '路由名称',
       'routes.route_id_helper': '此路由的唯一标识符 (例如 user-route)',
+      'routes.route_name_helper': '此路由的业务名称 (例如 User Service Route)',
       'routes.route_id_placeholder': '例如 user-route',
       'routes.order_helper': '路由优先级 (数字越小优先级越高)',
       'routes.description_label': '描述',
@@ -417,6 +449,7 @@ const resources = {
       'services.warning_all_disabled': '⚠️ 所有节点都已禁用，这将导致路由调用失败。请至少启用一个服务节点。',
       'services.weight_label': '权重：',
       'services.no_instances': '无实例',
+      'services.actions': '操作',
       'services.name_required': '请输入服务名称',
       'services.name_helper': '唯一服务标识符',
       'services.name_placeholder': '例如 user-service',
@@ -516,6 +549,11 @@ const resources = {
       'common.online': '上线',
       'common.healthy': '健康',
       'common.unhealthy': '不健康',
+      
+      // App Header
+      'app.title': 'API 网关',
+      'app.subtitle': '统一管理平台',
+      'app.console_title': 'API 网关控制台',
       'routes.search_placeholder': '搜索路由ID/名称/URI',
       'routes.status_filter_placeholder': '按状态筛选',
       'routes.description_helper': '管理API网关路由规则，包括断言、过滤器和服务转发配置',
@@ -530,9 +568,29 @@ const resources = {
       'strategies.empty_description': '暂无策略数据',
       'strategies.create_first': '创建第一个策略',
       
+      // Strategies Page - Premium Chinese Labels
+      'strategies.page_title': '策略管理',
+      'strategies.page_subtitle': '管理限流、IP 过滤、超时、熔断等微服务治理策略',
+      'strategies.tab_rate_limiter': '限流器',
+      'strategies.tab_ip_filter': 'IP 过滤',
+      'strategies.tab_timeout': '超时控制',
+      'strategies.tab_circuit_breaker': '熔断器',
+      'strategies.tab_tracing': '链路追踪',
+      'strategies.tab_auth': '认证',
+      'strategies.create_first_button': '+ 创建第一个策略',
+      'strategies.create_policy_button': '+ 创建策略',
+      'strategies.col_route_id': '路由 ID',
+      'strategies.col_status': '状态',
+      'strategies.col_rate_limit': '限流配置',
+      'strategies.col_actions': '操作',
+      'strategies.status_active': '已启用',
+      'strategies.status_inactive': '已禁用',
+      'strategies.btn_view': '查看',
+      'strategies.btn_edit': '编辑',
+      'strategies.btn_delete': '删除',
+      
       // Login
       'login.title': 'API Gateway Console',
-      'login.subtitle': 'Unified Management Platform',
       'login.username_placeholder': 'Username',
       'login.password_placeholder': 'Password',
       'login.button': 'Sign In',

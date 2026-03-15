@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Table, Button, Space, Modal, message, Typography, Spin, Tag, Drawer, Form, Input, Card, Descriptions, Select, Empty } from 'antd';
-import { PlusOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, EyeOutlined, ClusterOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import api from '../utils/api';
 import { useTranslation } from 'react-i18next';
@@ -593,12 +593,13 @@ const ServicesPage: React.FC = () => {
           locale={{
             emptyText: (
               <Empty 
-                description={t('services.empty_description')}
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={<span style={{ fontSize: '14px', color: '#64748B' }}>{t('services.empty_description')}</span>}
+                image={<ClusterOutlined style={{ fontSize: 64, color: '#CBD5E1' }} />}
               >
                 <Button 
                   type="primary" 
                   icon={<PlusOutlined />}
+                  size="large"
                   onClick={() => setCreateDrawerVisible(true)}
                 >
                   {t('services.create_first')}

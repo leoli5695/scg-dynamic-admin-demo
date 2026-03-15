@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Table, Button, Space, Modal, message, Typography, Spin, Tag, Drawer, Form, Input, Card, Tabs, Dropdown, Switch, Empty } from 'antd';
-import { PlusOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, CopyOutlined, SafetyOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import api from '../utils/api';
 import { useTranslation } from 'react-i18next';
 import copy from 'copy-to-clipboard';
+import './StrategiesPage.premium.css';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 interface RateLimiterConfig {
   routeId: string;
@@ -37,11 +38,29 @@ interface CircuitBreakerConfig {
   enabled: boolean;
 }
 
+interface TracingConfig {
+  routeId: string;
+  enabled: boolean;
+  headerName: string;
+  generateIfMissing: boolean;
+}
+
+interface AuthConfig {
+  routeId: string;
+  enabled: boolean;
+  authType: 'JWT' | 'API_KEY' | 'OAUTH2' | 'BASIC';
+  secretKey?: string;
+  apiKey?: string;
+  excludePaths?: string[];
+}
+
 interface Strategy {
   rateLimiters?: RateLimiterConfig[];
   ipFilters?: IPFilterConfig[];
   timeouts?: TimeoutConfig[];
   circuitBreakers?: CircuitBreakerConfig[];
+  tracings?: TracingConfig[];
+  auths?: AuthConfig[];
 }
 
 const StrategiesPage: React.FC = () => {
@@ -188,34 +207,37 @@ const StrategiesPage: React.FC = () => {
         ),
       },
       {
-        title: t('common.status'),
+        title: t('strategies.col_status'),
         dataIndex: 'enabled',
         key: 'enabled',
-        width: 100,
-        render: (enabled) => (
-          <Switch
-            checked={enabled}
-            onChange={() => {
-              // TODO: Implement status toggle
-              message.info(t('common.feature_not_implemented'));
-            }}
-          />
+        width: 120,
+        render: (enabled: boolean) => (
+          <Tag color={enabled ? 'green' : 'gray'}>
+            {enabled ? t('strategies.status_active') : t('strategies.status_inactive')}
+          </Tag>
         ),
       },
       {
-        title: t('common.actions'),
+        title: t('strategies.col_actions'),
         key: 'actions',
-        width: 150,
+        width: 180,
         fixed: 'right',
         render: (_, record) => (
-          <Space size="small">
+          <Space size="middle">
+            <Button type="link" size="small" onClick={() => message.info(t('common.feature_not_implemented'))}>
+              {t('strategies.btn_view')}
+            </Button>
+            <Button type="link" size="small" onClick={() => message.info(t('common.feature_not_implemented'))}>
+              {t('strategies.btn_edit')}
+            </Button>
             <Button 
-              danger
-              icon={<DeleteOutlined />}
+              danger 
+              type="link" 
               size="small"
+              icon={<DeleteOutlined />}
               onClick={() => handleDelete(strategyType, record.routeId)}
             >
-              {t('common.delete')}
+              {t('strategies.btn_delete')}
             </Button>
           </Space>
         ),
@@ -448,15 +470,17 @@ const StrategiesPage: React.FC = () => {
               locale={{
                 emptyText: (
                   <Empty 
-                    description={t('strategies.empty_description')}
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={<span style={{ fontSize: '14px', color: '#64748B' }}>{t('strategies.empty_description')}</span>}
+                    image={<SafetyOutlined style={{ fontSize: 64, color: '#CBD5E1' }} />}
                   >
                     <Button 
                       type="primary" 
                       icon={<PlusOutlined />}
+                      size="large"
                       onClick={() => setCreateDrawerVisible(true)}
+                      className="gradient-button"
                     >
-                      {t('strategies.create_first')}
+                      {t('strategies.create_first_button')}
                     </Button>
                   </Empty>
                 )
@@ -468,7 +492,7 @@ const StrategiesPage: React.FC = () => {
     },
     {
       key: 'ipFilter',
-      label: t('strategies.ipFilter'),
+      label: t('strategies.tab_ip_filter'),
       children: (
         <Card bordered={false}>
           {loading ? (
@@ -485,15 +509,17 @@ const StrategiesPage: React.FC = () => {
               locale={{
                 emptyText: (
                   <Empty 
-                    description={t('strategies.empty_description')}
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={<span style={{ fontSize: '14px', color: '#64748B' }}>{t('strategies.empty_description')}</span>}
+                    image={<SafetyOutlined style={{ fontSize: 64, color: '#CBD5E1' }} />}
                   >
                     <Button 
                       type="primary" 
                       icon={<PlusOutlined />}
+                      size="large"
                       onClick={() => setCreateDrawerVisible(true)}
+                      className="gradient-button"
                     >
-                      {t('strategies.create_first')}
+                      {t('strategies.create_first_button')}
                     </Button>
                   </Empty>
                 )
@@ -505,7 +531,7 @@ const StrategiesPage: React.FC = () => {
     },
     {
       key: 'timeout',
-      label: t('strategies.timeout'),
+      label: t('strategies.tab_timeout'),
       children: (
         <Card bordered={false}>
           {loading ? (
@@ -522,15 +548,17 @@ const StrategiesPage: React.FC = () => {
               locale={{
                 emptyText: (
                   <Empty 
-                    description={t('strategies.empty_description')}
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={<span style={{ fontSize: '14px', color: '#64748B' }}>{t('strategies.empty_description')}</span>}
+                    image={<SafetyOutlined style={{ fontSize: 64, color: '#CBD5E1' }} />}
                   >
                     <Button 
                       type="primary" 
                       icon={<PlusOutlined />}
+                      size="large"
                       onClick={() => setCreateDrawerVisible(true)}
+                      className="gradient-button"
                     >
-                      {t('strategies.create_first')}
+                      {t('strategies.create_first_button')}
                     </Button>
                   </Empty>
                 )
@@ -542,7 +570,7 @@ const StrategiesPage: React.FC = () => {
     },
     {
       key: 'circuitBreaker',
-      label: t('strategies.circuitBreaker'),
+      label: t('strategies.tab_circuit_breaker'),
       children: (
         <Card bordered={false}>
           {loading ? (
@@ -559,15 +587,95 @@ const StrategiesPage: React.FC = () => {
               locale={{
                 emptyText: (
                   <Empty 
-                    description={t('strategies.empty_description')}
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={<span style={{ fontSize: '14px', color: '#64748B' }}>{t('strategies.empty_description')}</span>}
+                    image={<SafetyOutlined style={{ fontSize: 64, color: '#CBD5E1' }} />}
                   >
                     <Button 
                       type="primary" 
                       icon={<PlusOutlined />}
+                      size="large"
                       onClick={() => setCreateDrawerVisible(true)}
+                      className="gradient-button"
                     >
-                      {t('strategies.create_first')}
+                      {t('strategies.create_first_button')}
+                    </Button>
+                  </Empty>
+                )
+              }}
+            />
+          )}
+        </Card>
+      ),
+    },
+    {
+      key: 'tracing',
+      label: t('strategies.tab_tracing'),
+      children: (
+        <Card bordered={false}>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '40px' }}>
+              <Spin tip={t('common.loading')} size="large" />
+            </div>
+          ) : (
+            <Table
+              columns={getColumns('tracing')}
+              dataSource={getDataSource('tracing')}
+              rowKey={(record) => record.routeId}
+              pagination={{ pageSize: 10, showSizeChanger: true }}
+              scroll={{ x: 800 }}
+              locale={{
+                emptyText: (
+                  <Empty 
+                    description={<span style={{ fontSize: '14px', color: '#64748B' }}>{t('strategies.empty_description')}</span>}
+                    image={<SafetyOutlined style={{ fontSize: 64, color: '#CBD5E1' }} />}
+                  >
+                    <Button 
+                      type="primary" 
+                      icon={<PlusOutlined />}
+                      size="large"
+                      onClick={() => setCreateDrawerVisible(true)}
+                      className="gradient-button"
+                    >
+                      {t('strategies.create_first_button')}
+                    </Button>
+                  </Empty>
+                )
+              }}
+            />
+          )}
+        </Card>
+      ),
+    },
+    {
+      key: 'auth',
+      label: t('strategies.tab_auth'),
+      children: (
+        <Card bordered={false}>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '40px' }}>
+              <Spin tip={t('common.loading')} size="large" />
+            </div>
+          ) : (
+            <Table
+              columns={getColumns('auth')}
+              dataSource={getDataSource('auth')}
+              rowKey={(record) => record.routeId}
+              pagination={{ pageSize: 10, showSizeChanger: true }}
+              scroll={{ x: 800 }}
+              locale={{
+                emptyText: (
+                  <Empty 
+                    description={<span style={{ fontSize: '14px', color: '#64748B' }}>{t('strategies.empty_description')}</span>}
+                    image={<SafetyOutlined style={{ fontSize: 64, color: '#CBD5E1' }} />}
+                  >
+                    <Button 
+                      type="primary" 
+                      icon={<PlusOutlined />}
+                      size="large"
+                      onClick={() => setCreateDrawerVisible(true)}
+                      className="gradient-button"
+                    >
+                      {t('strategies.create_first_button')}
                     </Button>
                   </Empty>
                 )
@@ -582,21 +690,18 @@ const StrategiesPage: React.FC = () => {
 
 
   return (
-    <Card 
-      title={
-        <div>
-          <Title level={4} style={{ margin: 0, display: 'inline-block' }}>{t('strategies.title')}</Title>
-          <div style={{ display: 'inline-block', marginLeft: 16, color: '#999', fontSize: '14px' }}>
-            {t('strategies.description_helper')}
-          </div>
+    <div className="page-container">
+      {/* Page Header */}
+      <div className="page-header">
+        <div className="page-title-group">
+          <h2>{t('strategies.page_title')}</h2>
+          <p>{t('strategies.page_subtitle')}</p>
         </div>
-      }
-      extra={
-        <Space>
+        <div className="page-actions">
           <Dropdown menu={{ items: [
             {
               key: 'rateLimiter',
-              label: t('strategies.rateLimiter'),
+              label: t('strategies.tab_rate_limiter'),
               onClick: () => {
                 setActiveTab('rateLimiter');
                 setCreateDrawerVisible(true);
@@ -604,7 +709,7 @@ const StrategiesPage: React.FC = () => {
             },
             {
               key: 'ipFilter',
-              label: t('strategies.ipFilter'),
+              label: t('strategies.tab_ip_filter'),
               onClick: () => {
                 setActiveTab('ipFilter');
                 setCreateDrawerVisible(true);
@@ -612,7 +717,7 @@ const StrategiesPage: React.FC = () => {
             },
             {
               key: 'timeout',
-              label: t('strategies.timeout'),
+              label: t('strategies.tab_timeout'),
               onClick: () => {
                 setActiveTab('timeout');
                 setCreateDrawerVisible(true);
@@ -620,9 +725,25 @@ const StrategiesPage: React.FC = () => {
             },
             {
               key: 'circuitBreaker',
-              label: t('strategies.circuitBreaker'),
+              label: t('strategies.tab_circuit_breaker'),
               onClick: () => {
                 setActiveTab('circuitBreaker');
+                setCreateDrawerVisible(true);
+              }
+            },
+            {
+              key: 'tracing',
+              label: t('strategies.tab_tracing'),
+              onClick: () => {
+                setActiveTab('tracing');
+                setCreateDrawerVisible(true);
+              }
+            },
+            {
+              key: 'auth',
+              label: t('strategies.tab_auth'),
+              onClick: () => {
+                setActiveTab('auth');
                 setCreateDrawerVisible(true);
               }
             },
@@ -630,17 +751,20 @@ const StrategiesPage: React.FC = () => {
             <Button 
               type="primary" 
               icon={<PlusOutlined />}
+              size="large"
             >
-              {t('strategies.create')}
+              {t('strategies.create_policy_button')}
             </Button>
           </Dropdown>
-        </Space>
-      }
-    >
+        </div>
+      </div>
+
+      {/* Tabs with Premium Style */}
       <Tabs 
         activeKey={activeTab} 
         onChange={setActiveTab}
         items={items}
+        className="premium-tabs"
       />
 
       {/* Create Strategy Drawer */}
@@ -663,17 +787,17 @@ const StrategiesPage: React.FC = () => {
 
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit">
+              <Button type="primary" htmlType="submit" size="large">
                 {t('common.create')}
               </Button>
-              <Button onClick={() => setCreateDrawerVisible(false)}>
+              <Button onClick={() => setCreateDrawerVisible(false)} size="large">
                 {t('common.cancel')}
               </Button>
             </Space>
           </Form.Item>
         </Form>
       </Drawer>
-    </Card>
+    </div>
   );
 };
 

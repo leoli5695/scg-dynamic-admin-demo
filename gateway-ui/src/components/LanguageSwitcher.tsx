@@ -14,9 +14,12 @@ const LanguageSwitcher: React.FC = () => {
     i18n.changeLanguage(value);
   };
 
+  // Get current language code (first 2 characters)
+  const currentLang = i18n.language?.substring(0, 2) || 'en';
+
   return (
     <Select
-      value={i18n.language}
+      value={currentLang}
       onChange={handleChange}
       options={languages}
       prefixCls="language-switcher"

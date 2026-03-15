@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Layout, Menu, theme, Avatar, Dropdown, Space, message } from 'antd';
 import type { MenuProps } from 'antd';
 import { 
@@ -6,7 +6,8 @@ import {
   SafetyOutlined,        // Strategies - 安全/策略图标  
   DeploymentUnitOutlined, // Routes - 路由/部署图标
   UserOutlined,
-  LogoutOutlined
+  LogoutOutlined,
+  GatewayOutlined
 } from '@ant-design/icons';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import RoutesPage from './pages/RoutesPage';
@@ -14,7 +15,9 @@ import ServicesPage from './pages/ServicesPage';
 import StrategiesPage from './pages/StrategiesPage';
 import LoginPage from './pages/LoginPage';
 import LanguageSwitcher from './components/LanguageSwitcher';
+import { useTranslation } from 'react-i18next';
 import './App.css';
+import './App.premium.css';
 
 const { Header, Sider, Content } = Layout;
 
@@ -34,21 +37,23 @@ function getItem(
   } as MenuItem;
 }
 
-const menuItems: MenuItem[] = [
-  getItem('Services', 'services', <AppstoreOutlined />),
-  getItem('Routes', 'routes', <DeploymentUnitOutlined />),
-  getItem('Strategies', 'strategies', <SafetyOutlined />),
-];
-
 const App: React.FC = () => {
   const [current, setCurrent] = useState('services');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<{ username: string; nickname: string; role: string } | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
   const {
     token: { colorBgContainer },
   } = theme.useToken();
+
+  // Menu items with i18n - memoized to respond to language changes
+  const menuItems: MenuItem[] = useMemo(() => [
+    getItem(t('menu.services'), 'services', <AppstoreOutlined />),
+    getItem(t('menu.routes'), 'routes', <DeploymentUnitOutlined />),
+    getItem(t('menu.strategies'), 'strategies', <SafetyOutlined />),
+  ], [t]);
 
   // Check login status on mount
   useEffect(() => {
@@ -109,10 +114,11 @@ const App: React.FC = () => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      {/* Left Sidebar */}
-      <Sider width={200} theme="dark" className="sidebar">
-        <div className="logo">
-          Gateway Admin
+      {/* Left Sidebar - Dark theme */}
+      <Sider width={220} theme="dark" className="sidebar-premium">
+        <div className="sidebar-logo">
+          <GatewayOutlined className="logo-icon" />
+          <span className="logo-text">API Gateway</span>
         </div>
         <Menu
           theme="dark"
@@ -120,42 +126,36 @@ const App: React.FC = () => {
           selectedKeys={[current]}
           items={menuItems}
           onClick={onClick}
-          style={{ borderRight: 'none', fontSize: '14px' }}
         />
       </Sider>
       
       {/* Main Content Area */}
       <Layout>
-        <Header style={{ 
-          background: colorBgContainer,
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'space-between',
-          padding: '0 24px',
-          borderBottom: '1px solid #f0f0f0'
-        }}>
-          <div style={{ fontSize: '16px', fontWeight: 500 }}>
-            API Gateway Management Console
+        <Header className="main-header">
+          <div className="header-left">
+            <h1 className="header-title">{t('app.console_title')}</h1>
+            <span className="header-subtitle">{t('app.subtitle')}</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div className="header-right">
             <LanguageSwitcher />
             {isLoggedIn && user && (
-              <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
-                <Space style={{ cursor: 'pointer', padding: '8px' }}>
-                  <Avatar style={{ backgroundColor: '#667eea' }} icon={<UserOutlined />} />
-                  <span>{user.nickname || user.username}</span>
+              <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow trigger={['click']}>
+                <Space className="user-info">
+                  <Avatar style={{ backgroundColor: '#165DFF' }} icon={<UserOutlined />} size="small" />
+                  <span className="username">{user.nickname || user.username}</span>
                 </Space>
               </Dropdown>
             )}
           </div>
         </Header>
-        <Content style={{ 
-          padding: '24px', 
-          background: colorBgContainer,
-          overflow: 'auto'
-        }}>
+        <Content className="main-content">
           {renderContent()}
         </Content>
+        
+        {/* Page Footer */}
+        <footer className="page-footer">
+          <p className="footer-text">© {new Date().getFullYear()} leoli. All rights reserved.</p>
+        </footer>
       </Layout>
     </Layout>
   );

@@ -1,0 +1,31 @@
+package com.leoli.gateway.admin.repository;
+
+import com.leoli.gateway.admin.model.RouteEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+/**
+ * Route repository interface.
+ *
+ * @author leoli
+ */
+@Repository
+public interface RouteRepository extends JpaRepository<RouteEntity, Long> {
+    
+    /**
+     * Find route by business route name.
+     */
+    RouteEntity findByRouteName(String routeName);
+    
+    /**
+     * Find route by route_id (UUID).
+     */
+    RouteEntity findByRouteId(String routeId);
+    
+    /**
+     * Find all enabled routes.
+     */
+    List<RouteEntity> findByEnabledTrue();
+}
