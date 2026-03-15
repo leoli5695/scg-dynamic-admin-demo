@@ -63,7 +63,7 @@
 ```mermaid
 graph TB
     subgraph "管理平面 Admin Plane"
-        A1["gateway-admin\nPort: 8080"]
+        A1["gateway-admin<br/>Port: 8080"]
         A2["REST API Controller"]
         A3["Service Layer"]
         A4["JPA Repository"]
@@ -77,14 +77,14 @@ graph TB
     end
     
     subgraph "配置中心 Config Center"
-        B1["Nacos Config Center\ndataId: config.gateway.route-*\ndataId: config.gateway.service-*\ngroup: DEFAULT_GROUP"]
-        B2["Consul KV\nprefix: config/gateway"]
+        B1["Nacos Config Center<br/>dataId: config.gateway.route-*<br/>dataId: config.gateway.service-*<br/>group: DEFAULT_GROUP"]
+        B2["Consul KV<br/>prefix: config/gateway"]
     end
     
     subgraph "数据平面 Data Plane"
-        C1["my-gateway\nPort: 80"]
-        C2["RouteRefresher\nServiceRefresher"]
-        C3["GenericCacheManager\nPrimary + Fallback"]
+        C1["my-gateway<br/>Port: 80"]
+        C2["RouteRefresher<br/>ServiceRefresher"]
+        C3["GenericCacheManager<br/>Primary + Fallback"]
         C4["DynamicRouteDefinitionLocator"]
         C5["GlobalFilter Chain"]
         C6["StaticDiscoveryService"]
