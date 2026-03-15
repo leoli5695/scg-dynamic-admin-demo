@@ -64,13 +64,16 @@
 
 ```mermaid
 graph TB
+    %% 定义样式类，使用更小字体避免截断
+    classDef smallFont font-size:10px;
+    
     subgraph "管理平面 Admin Plane"
-        A1["gateway-admin\nPort: 8080"]
-        A2["REST API Controller"]
-        A3["Service Layer"]
-        A4["JPA Repository"]
-        A5["H2 Database"]
-        A6["ConfigCenterService"]
+        A1["gateway-admin<br/>Port: 8080"]:::smallFont
+        A2["REST API Controller"]:::smallFont
+        A3["Service Layer"]:::smallFont
+        A4["JPA Repository"]:::smallFont
+        A5["H2 Database"]:::smallFont
+        A6["ConfigCenterService"]:::smallFont
         
         A2 --> A3
         A3 --> A4
@@ -79,17 +82,17 @@ graph TB
     end
     
     subgraph "配置中心 Config Center"
-        B1["Nacos Server\ngateway-routes.json\ngateway-services.json\ngateway-strategies.json"]
-        B2["Consul KV\nconfig/gateway-*"]
+        B1["Nacos Server<br/>gateway-routes.json<br/>gateway-services.json<br/>gateway-strategies.json"]:::smallFont
+        B2["Consul KV<br/>config/gateway-*"]:::smallFont
     end
     
     subgraph "数据平面 Data Plane"
-        C1["my-gateway\nPort: 80"]
-        C2["RouteRefresher\nServiceRefresher"]
-        C3["GenericCacheManager\nPrimary + Fallback"]
-        C4["DynamicRouteDefinitionLocator"]
-        C5["GlobalFilter Chain"]
-        C6["StaticDiscoveryService"]
+        C1["my-gateway<br/>Port: 80"]:::smallFont
+        C2["RouteRefresher<br/>ServiceRefresher"]:::smallFont
+        C3["GenericCacheManager<br/>Primary + Fallback"]:::smallFont
+        C4["DynamicRouteDefinitionLocator"]:::smallFont
+        C5["GlobalFilter Chain"]:::smallFont
+        C6["StaticDiscoveryService"]:::smallFont
         
         C2 --> C3
         C3 --> C4
