@@ -2211,3 +2211,9 @@ public class TraceIdGlobalFilter implements GlobalFilter {
 - 💬 **加入讨论** - 参与社区交流和功能设计
 
 **一起让这个项目变得更好！** 🚀
+
+---
+
+## 八、未来规划与扩展功能
+
+### 8.1 多服务路由与灰度发布（计划中）
